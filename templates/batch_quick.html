@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时监控 - 智谱AI股票分析系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin: 0 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .status-value {
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .auto-refresh-badge {
+            background: #27ae60;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: none;
+        }
+
+        .auto-refresh-badge.active {
+            display: inline-block;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-refresh:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-refresh.loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-refresh .spinner {
+            display: none;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .btn-refresh.loading .spinner {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .stock-management {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .management-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .management-header h3 {
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .add-stock-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .add-stock-form input {
+            flex: 1;
+            max-width: 200px;
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .add-stock-form input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .stock-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .stock-tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+
+        .stock-tag .remove-btn {
+            background: rgba(255, 255, 255, 0.3);
+            border: none;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .stock-tag .remove-btn:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .stocks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .stock-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s;
+            position: relative;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-remove-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .card-remove-btn:hover {
+            background: #ee5a5a;
+            transform: scale(1.1);
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-right: 40px;
+        }
+
+        .stock-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stock-code {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .stock-price {
+            font-size: 2em;
+            font-weight: 700;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .price-value {
+            color: #333;
+        }
+
+        .price-value.up {
+            color: #e74c3c;
+        }
+
+        .price-value.down {
+            color: #27ae60;
+        }
+
+        .price-change {
+            font-size: 0.5em;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .price-change.up {
+            background: #ffeaea;
+            color: #e74c3c;
+        }
+
+        .price-change.down {
+            background: #eaffea;
+            color: #27ae60;
+        }
+
+        .stock-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .detail-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            color: #999;
+            font-size: 0.8em;
+            margin-bottom: 3px;
+        }
+
+        .detail-value {
+            color: #333;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        .pattern-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .pattern-type {
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .pattern-confidence {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .ai-analysis {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .suggestions {
+            background: #d1ecf1;
+            border-left: 4px solid #0dcaf0;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85em;
+        }
+
+        .suggestions ul {
+            margin: 8px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .suggestions li {
+            color: #055160;
+            margin: 4px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: white;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        .error {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            color: #721c24;
+        }
+
+        .empty-state {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 60px;
+            text-align: center;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            .stocks-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .add-stock-form {
+                flex-direction: column;
+            }
+
+            .add-stock-form input {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header" style="display: flex; justify-content: space-between; align-items: center; gap: 25px;">
+            <div style="flex: 1;">
+                <h1 style="margin-bottom: 10px;">
+                    <span>📊</span>
+                    实时监控面板
+                </h1>
+                <div class="header-controls">
+                    <a href="/" class="btn btn-secondary" style="text-decoration: none;">🏠 返回主页</a>
+                    <a href="/sector-scan" class="btn btn-primary" style="text-decoration: none;">🔍 板块扫描</a>
+                    <button class="btn btn-refresh" onclick="manualRefresh()">
+                        <span class="spinner"></span>
+                        🔄 立即刷新
+                    </button>
+                </div>
+            </div>
+
+            <!-- 贵金属价格显示 -->
+            <div id="metals-price-widget" style="background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px; min-width: 220px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+                <div style="display: flex; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                    <span style="font-size: 1em; margin-right: 5px;">🥇</span>
+                    <strong style="color: #333333; font-size: 0.85em;">贵金属实时价格</strong>
+                </div>
+                <div id="metals-price-content" style="font-size: 0.8em;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
+                        <span style="color: #666666;">💰 黄金</span>
+                        <span id="gold-prices" style="font-weight: 500; color: #333;">加载中...</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #666666;">💎 白银</span>
+                        <span id="silver-prices" style="font-weight: 500; color: #333;">加载中...</span>
+                    </div>
+                </div>
+                <div id="metals-update-time" style="margin-top: 8px; font-size: 0.65em; color: #999999; text-align: right;"></div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-info">
+                <div class="status-item">
+                    <span class="status-label">监控股票:</span>
+                    <span class="status-value" id="stockCount">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">自动刷新:</span>
+                    <span class="status-value" id="autoRefreshStatus">已关闭</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">下次刷新:</span>
+                    <span class="status-value" id="nextRefresh">--</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">上次更新:</span>
+                    <span class="status-value" id="lastUpdate">--</span>
+                </div>
+            </div>
+            <span class="auto-refresh-badge" id="autoRefreshBadge">⏰ 自动刷新中 (30s)</span>
+        </div>
+
+        <div class="stock-management">
+            <div class="management-header">
+                <h3>📋 管理监控股票</h3>
+                <small style="color: #666;">添加或删除要监控的股票代码</small>
+            </div>
+            <div class="add-stock-form">
+                <input type="text" id="newStockCode" placeholder="输入股票代码（如：600000）" onkeypress="if(event.key === 'Enter') addStock()">
+                <button class="btn btn-primary" onclick="addStock()">➕ 添加股票</button>
+                <button class="btn btn-secondary" onclick="resetStocks()">↺ 重置默认</button>
+            </div>
+            <div class="stock-tags" id="stockTags">
+                <!-- 股票标签将在这里动态生成 -->
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>正在加载实时数据...</p>
+        </div>
+
+        <div id="results" class="stocks-grid" style="display: none;">
+            <!-- 股票卡片将在这里动态生成 -->
+        </div>
+    </div>
+
+    <script>
+        // 默认股票列表
+        const DEFAULT_STOCKS = ['601869', '518880', '603993', '601138'];
+
+        // 当前监控的股票列表（从localStorage加载或使用默认）
+        let stockCodes = JSON.parse(localStorage.getItem('monitoredStocks')) || [...DEFAULT_STOCKS];
+
+        let autoRefreshTimer = null;
+        let countdownTimer = null;
+        let secondsUntilNextRefresh = 0;
+
+        // 获取贵金属价格
+        async function fetchMetalsPrices() {
+            try {
+                const response = await fetch('/api/metals-prices');
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const data = result.data;
+
+                    // 更新黄金价格
+                    if (data.gold_usd !== null && data.gold_cny !== null) {
+                        document.getElementById('gold-prices').innerHTML =
+                            `<span style="color: #1976d2;">$${data.gold_usd}/oz</span>` +
+                            ` <span style="color: #757575;">|</span> ` +
+                            `<span style="color: #d32f2f;">¥${data.gold_cny}/g</span>`;
+                    } else {
+                        document.getElementById('gold-prices').textContent = '暂无数据';
+                    }
+
+                    // 更新白银价格
+                    if (data.silver_usd !== null && data.silver_cny !== null) {
+                        document.getElementById('silver-prices').innerHTML =
+                            `<span style="color: #1976d2;">$${data.silver_usd}/oz</span>` +
+                            ` <span style="color: #757575;">|</span> ` +
+                            `<span style="color: #d32f2f;">¥${data.silver_cny}/g</span>`;
+                    } else {
+                        document.getElementById('silver-prices').textContent = '暂无数据';
+                    }
+
+                    // 更新时间
+                    if (data.update_time) {
+                        document.getElementById('metals-update-time').textContent =
+                            '更新: ' + data.update_time;
+                    }
+                } else {
+                    document.getElementById('gold-prices').textContent = '加载失败';
+                    document.getElementById('silver-prices').textContent = '加载失败';
+                }
+            } catch (error) {
+                console.error('获取贵金属价格失败:', error);
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            renderStockTags();
+            fetchBatchData();
+            fetchMetalsPrices(); // 加载贵金属价格
+            checkAutoRefreshTime();
+
+            // 每分钟检查一次是否在自动刷新时间范围内
+            setInterval(checkAutoRefreshTime, 60000);
+        });
+
+        // 保存股票列表到localStorage
+        function saveStockCodes() {
+            localStorage.setItem('monitoredStocks', JSON.stringify(stockCodes));
+        }
+
+        // 渲染股票标签
+        function renderStockTags() {
+            const container = document.getElementById('stockTags');
+            document.getElementById('stockCount').textContent = stockCodes.length;
+
+            if (stockCodes.length === 0) {
+                container.innerHTML = '<p style="color: #999;">暂无监控股票，请添加股票代码</p>';
+                return;
+            }
+
+            container.innerHTML = stockCodes.map(code => `
+                <div class="stock-tag">
+                    <span>${code}</span>
+                    <button class="remove-btn" onclick="removeStock('${code}')" title="删除">×</button>
+                </div>
+            `).join('');
+        }
+
+        // 添加股票
+        function addStock() {
+            const input = document.getElementById('newStockCode');
+            const code = input.value.trim();
+
+            if (!code) {
+                alert('请输入股票代码');
+                return;
+            }
+
+            // 验证股票代码格式（6位数字）
+            if (!/^\d{6}$/.test(code)) {
+                alert('股票代码格式不正确，应为6位数字');
+                return;
+            }
+
+            // 检查是否已存在
+            if (stockCodes.includes(code)) {
+                alert('该股票已在监控列表中');
+                return;
+            }
+
+            stockCodes.push(code);
+            saveStockCodes();
+            renderStockTags();
+
+            input.value = '';
+
+            // 立即刷新数据
+            fetchBatchData();
+        }
+
+        // 删除股票
+        function removeStock(code) {
+            if (stockCodes.length <= 1) {
+                alert('至少需要保留一只股票');
+                return;
+            }
+
+            if (confirm(`确定要删除股票 ${code} 吗？`)) {
+                stockCodes = stockCodes.filter(c => c !== code);
+                saveStockCodes();
+                renderStockTags();
+                fetchBatchData();
+            }
+        }
+
+        // 重置为默认股票
+        function resetStocks() {
+            if (confirm('确定要重置为默认股票列表吗？')) {
+                stockCodes = [...DEFAULT_STOCKS];
+                saveStockCodes();
+                renderStockTags();
+                fetchBatchData();
+            }
+        }
+
+        // 检查是否在自动刷新时间范围内（9:30-10:00）
+        function checkAutoRefreshTime() {
+            const now = new Date();
+            const hour = now.getHours();
+            const minute = now.getMinutes();
+            const currentTime = hour * 60 + minute; // 转换为分钟
+            const startTime = 9 * 60 + 30; // 9:30
+            const endTime = 10 * 60; // 10:00
+
+            const isInAutoRefreshTime = currentTime >= startTime && currentTime < endTime;
+
+            if (isInAutoRefreshTime && !autoRefreshTimer) {
+                startAutoRefresh();
+            } else if (!isInAutoRefreshTime && autoRefreshTimer) {
+                stopAutoRefresh();
+            }
+        }
+
+        // 启动自动刷新
+        function startAutoRefresh() {
+            document.getElementById('autoRefreshStatus').textContent = '运行中';
+            document.getElementById('autoRefreshStatus').style.color = '#27ae60';
+            document.getElementById('autoRefreshBadge').classList.add('active');
+
+            secondsUntilNextRefresh = 30;
+            updateCountdown();
+
+            // 立即执行一次刷新
+            fetchBatchData();
+
+            // 设置30秒定时器
+            autoRefreshTimer = setInterval(() => {
+                fetchBatchData();
+                secondsUntilNextRefresh = 30;
+                updateCountdown();
+            }, 30000);
+
+            // 倒计时显示
+            countdownTimer = setInterval(() => {
+                secondsUntilNextRefresh--;
+                updateCountdown();
+            }, 1000);
+        }
+
+        // 停止自动刷新
+        function stopAutoRefresh() {
+            document.getElementById('autoRefreshStatus').textContent = '已关闭';
+            document.getElementById('autoRefreshStatus').style.color = '#333';
+            document.getElementById('autoRefreshBadge').classList.remove('active');
+            document.getElementById('nextRefresh').textContent = '--';
+
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+        }
+
+        // 更新倒计时显示
+        function updateCountdown() {
+            const nextRefresh = new Date(Date.now() + secondsUntilNextRefresh * 1000);
+            const timeStr = nextRefresh.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('nextRefresh').textContent = timeStr;
+        }
+
+        // 手动刷新
+        async function manualRefresh() {
+            const refreshBtn = document.querySelector('.btn-refresh');
+            refreshBtn.classList.add('loading');
+
+            try {
+                await fetchBatchData();
+                await fetchMetalsPrices(); // 同时刷新贵金属价格
+            } finally {
+                refreshBtn.classList.remove('loading');
+            }
+        }
+
+        // 获取批量数据
+        async function fetchBatchData() {
+            if (stockCodes.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            const loadingEl = document.getElementById('loading');
+            const resultsEl = document.getElementById('results');
+
+            try {
+                const response = await fetch('/api/batch-quick-analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ stock_codes: stockCodes })
+                });
+
+                const result = await response.json();
+
+                loadingEl.style.display = 'none';
+                resultsEl.style.display = 'grid';
+
+                if (result.success) {
+                    displayResults(result.results);
+                    updateTime();
+                } else {
+                    displayError(result.error || '获取数据失败');
+                }
+
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                resultsEl.style.display = 'none';
+                displayError('网络错误，请稍后重试');
+            }
+        }
+
+        // 显示空状态
+        function showEmptyState() {
+            const loadingEl = document.getElementById('loading');
+            const resultsEl = document.getElementById('results');
+
+            loadingEl.style.display = 'none';
+            resultsEl.style.display = 'block';
+            resultsEl.innerHTML = `
+                <div class="empty-state">
+                    <h3>📋 暂无监控股票</h3>
+                    <p>请在上方添加要监控的股票代码</p>
+                </div>
+            `;
+        }
+
+        // 显示结果
+        function displayResults(results) {
+            const container = document.getElementById('results');
+
+            if (results.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>😕 没有可显示的数据</h3>
+                        <p>请检查股票代码是否正确</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            results.forEach(result => {
+                if (result.success) {
+                    html += buildStockCard(result);
+                } else {
+                    html += buildErrorCard(result.error || '数据获取失败', result.data?.stock_code);
+                }
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 构建关键价位HTML
+        function buildKeyPriceLevels(priceLevels) {
+            if (!priceLevels) return '';
+
+            return `
+                <div style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); padding: 12px; border-radius: 10px; margin-top: 12px; border: 1px solid #ffc107;">
+                    <div style="font-weight: 600; color: #f57c00; margin-bottom: 10px; font-size: 0.9em;">📍 关键价位</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8em;">
+                        <!-- 压力位 -->
+                        <div style="color: #d32f2f;">
+                            <div style="font-weight: 500; margin-bottom: 4px;">📈 压力位</div>
+                            <div style="color: #666;">① ${priceLevels['第一压力位']}元</div>
+                            <div style="color: #666;">② ${priceLevels['第二压力位']}元</div>
+                            <div style="color: #666;">③ ${priceLevels['第三压力位']}元</div>
+                        </div>
+                        <!-- 支撑位 -->
+                        <div style="color: #388e3c;">
+                            <div style="font-weight: 500; margin-bottom: 4px;">📉 支撑位</div>
+                            <div style="color: #666;">① ${priceLevels['第一支撑位']}元</div>
+                            <div style="color: #666;">② ${priceLevels['第二支撑位']}元</div>
+                            <div style="color: #666;">③ ${priceLevels['第三支撑位']}元</div>
+                        </div>
+                        <!-- 均线 -->
+                        <div style="color: #1976d2;">
+                            <div style="font-weight: 500; margin-bottom: 4px;">📊 均线</div>
+                            <div style="color: #666;">5日: ${priceLevels['5日均线']}元</div>
+                            <div style="color: #666;">10日: ${priceLevels['10日均线']}元</div>
+                            <div style="color: #666;">20日: ${priceLevels['20日均线']}元</div>
+                        </div>
+                        <!-- 今日极值 -->
+                        <div style="color: #7b1fa2;">
+                            <div style="font-weight: 500; margin-bottom: 4px;">⚡ 今日极值</div>
+                            <div style="color: #666;">最高: ${priceLevels['今日最高']}元</div>
+                            <div style="color: #666;">最低: ${priceLevels['今日最低']}元</div>
+                            <div style="color: #666;">涨停: ${priceLevels['涨停价']}元</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 构建股票卡片HTML
+        function buildStockCard(result) {
+            const data = result.data;
+            const pattern = result.pattern_detection;
+
+            const changeClass = data.change_percent >= 0 ? 'up' : 'down';
+            const changeSign = data.change_percent >= 0 ? '+' : '';
+
+            let cardHtml = `
+                <div class="stock-card">
+                    <button class="card-remove-btn" onclick="removeStock('${data.stock_code}')" title="删除此股票">×</button>
+
+                    <div class="stock-header">
+                        <div class="stock-name">${data.stock_name}</div>
+                        <div class="stock-code">${data.stock_code}</div>
+                    </div>
+
+                    <div class="stock-price">
+                        <span class="price-value ${changeClass}">${data.current_price} 元</span>
+                        <span class="price-change ${changeClass}">${changeSign}${data.change_percent}%</span>
+                    </div>
+
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <div class="detail-label">开盘价</div>
+                            <div class="detail-value">${data.open_price} 元</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">最高价</div>
+                            <div class="detail-value">${data.high_price} 元</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">涨停价</div>
+                            <div class="detail-value">${data.limit_up} 元</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">成交量</div>
+                            <div class="detail-value">${(data.volume / 10000).toFixed(0)} 万手</div>
+                        </div>
+                    </div>
+
+                    <!-- 关键价位 -->
+                    ${buildKeyPriceLevels(result.key_price_levels)}
+
+                    <div class="pattern-badge">
+                        <div class="pattern-type">🔍 ${pattern.type}</div>
+                        <div class="pattern-confidence">置信度: ${pattern.confidence}%</div>
+                    </div>
+            `;
+
+            // AI分析
+            if (result.ai_analysis) {
+                cardHtml += `
+                    <div class="ai-analysis">
+                        <strong>🤖 AI分析:</strong><br>
+                        ${result.ai_analysis.analysis}
+                    </div>
+                `;
+            }
+
+            // 操作建议（详细版）
+            if (result.operation_suggestion) {
+                const suggestion = result.operation_suggestion;
+                let priceLevelsHtml = '';
+                if (suggestion.price_levels && Object.keys(suggestion.price_levels).length > 0) {
+                    priceLevelsHtml = '<div style="margin-top: 8px;"><strong>📍 关键价位:</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+                    for (const [key, value] of Object.entries(suggestion.price_levels)) {
+                        priceLevelsHtml += `<li>${key}: ${value} 元</li>`;
+                    }
+                    priceLevelsHtml += '</ul></div>';
+                }
+
+                cardHtml += `
+                    <div class="operation-suggestion" style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); padding: 15px; border-radius: 10px; margin-top: 12px; border: 2px solid #9c27b0;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <strong style="font-size: 1.1em; color: #7b1fa2;">📊 操作建议: ${suggestion.action}</strong>
+                            <span style="margin-left: 10px; padding: 3px 10px; background: ${suggestion.confidence === '高' ? '#4caf50' : suggestion.confidence === '中' ? '#ff9800' : '#9e9e9e'}; color: white; border-radius: 12px; font-size: 0.85em;">置信度: ${suggestion.confidence}</span>
+                        </div>
+                        <div style="color: #424242; line-height: 1.6;">
+                            <strong>💡 理由:</strong><br>
+                            ${suggestion.reasoning}
+                        </div>
+                        ${priceLevelsHtml}
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ba68c8; color: #d32f2f; font-size: 0.9em;">
+                            <strong>⚠️ 风险提示:</strong> ${suggestion.risk_warning}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 简单建议（兼容旧版本）
+            if (result.suggestions && !result.operation_suggestion) {
+                cardHtml += `
+                    <div class="suggestions">
+                        <strong>💡 操作建议:</strong>
+                        <ul>
+                            ${result.suggestions.map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 提示消息
+            if (result.message) {
+                cardHtml += `
+                    <div style="background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 0.85em;">
+                        <strong>💡 提示:</strong> ${result.message}
+                    </div>
+                `;
+            }
+
+            cardHtml += `</div>`;
+            return cardHtml;
+        }
+
+        // 构建错误卡片
+        function buildErrorCard(errorMsg, stockCode) {
+            return `
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div class="stock-name">数据加载失败</div>
+                        ${stockCode ? `<div class="stock-code">${stockCode}</div>` : ''}
+                    </div>
+                    <div style="color: #721c24; padding: 20px 0; text-align: center;">
+                        ❌ ${errorMsg}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 显示错误
+        function displayError(message) {
+            const container = document.getElementById('results');
+            container.innerHTML = `
+                <div class="error">
+                    <strong>❌ 错误</strong>
+                    <p style="margin-top: 10px;">${message}</p>
+                </div>
+            `;
+            container.style.display = 'block';
+        }
+
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleString('zh-CN');
+            document.getElementById('lastUpdate').textContent = timeStr;
+        }
+    </script>
+</body>
+</html>

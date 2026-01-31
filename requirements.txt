@@ -1,0 +1,39 @@
+# 股票AIGC监控系统依赖
+
+# HTTP客户端
+requests>=2.31.0
+httpx>=0.25.0
+
+# 异步支持
+aiohttp>=3.9.0
+asyncio>=3.4.3
+
+# 数据处理
+pandas>=2.1.0
+numpy>=1.24.0
+
+# 配置管理
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# 日志
+loguru>=0.7.0
+
+# AIGC SDK
+# 根据使用的模型安装对应SDK
+
+# OpenAI (GPT)
+# openai>=1.0.0
+
+# 讯飞星火
+# spark-ai>=1.0.0
+
+# 百度千帆（文心一言）
+# qianfan>=0.3.0
+
+# 智谱AI（ChatGLM）
+# zhipuai>=2.0.0
+
+# 数据库（可选）
+# pymongo>=4.6.0
+# redis>=5.0.0
