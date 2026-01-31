@@ -39,7 +39,8 @@ class TencentFinanceCollector(DataCollector):
         """
         try:
             # 处理股票代码格式
-            if stock_code.startswith("6"):
+            if stock_code.startswith("6") or stock_code.startswith("5"):
+                # 6开头是上交所股票，5开头是上交所ETF基金
                 symbol = f"sh{stock_code}"
             elif stock_code.startswith("0") or stock_code.startswith("3"):
                 symbol = f"sz{stock_code}"
