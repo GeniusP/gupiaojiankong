@@ -20,7 +20,9 @@ class SectorScanner:
 
     def get_hot_sectors(self, top_n: int = 5) -> List[Dict]:
         """
-        获取热门板块列表
+        获取热门板块列表（按热度排序）
+
+        热度定义：按成交额排序，成交额越大代表市场关注度越高
 
         Args:
             top_n: 获取前N个热门板块
@@ -30,7 +32,8 @@ class SectorScanner:
                 {
                     'sector_code': 板块代码,
                     'sector_name': 板块名称,
-                    'change_percent': 涨跌幅
+                    'change_percent': 涨跌幅,
+                    'amount': 成交额（万元）
                 },
                 ...
             ]
@@ -45,9 +48,9 @@ class SectorScanner:
                 'np': '1',
                 'fltt': '2',
                 'invt': '2',
-                'fid': 'f3',  # 按涨跌幅排序
+                'fid': 'f6',  # 按成交额排序（热度）
                 'fs': 'm:90+t:2',  # 板块
-                'fields': 'f12,f14,f2,f3',  # 代码,名称,最新价,涨跌幅
+                'fields': 'f12,f14,f2,f3,f6',  # 代码,名称,最新价,涨跌幅,成交额
                 '_': str(int(datetime.now().timestamp() * 1000))
             }
 
@@ -60,7 +63,8 @@ class SectorScanner:
                     sectors.append({
                         'sector_code': item.get('f12', ''),
                         'sector_name': item.get('f14', ''),
-                        'change_percent': round(item.get('f3', 0), 2)
+                        'change_percent': round(item.get('f3', 0), 2),
+                        'amount': item.get('f6', 0)  # 成交额
                     })
                 return sectors
 
@@ -74,11 +78,11 @@ class SectorScanner:
     def _get_default_sectors(self) -> List[Dict]:
         """获取默认热门板块列表（备用）"""
         return [
-            {'sector_code': 'BK0001', 'sector_name': '人工智能', 'change_percent': 3.5},
-            {'sector_code': 'BK0002', 'sector_name': '新能源汽车', 'change_percent': 2.8},
-            {'sector_code': 'BK0003', 'sector_name': '半导体', 'change_percent': 2.5},
-            {'sector_code': 'BK0004', 'sector_name': '军工', 'change_percent': 2.0},
-            {'sector_code': 'BK0005', 'sector_name': '医药生物', 'change_percent': 1.8},
+            {'sector_code': 'BK0001', 'sector_name': '人工智能', 'change_percent': 3.5, 'amount': 5000000},
+            {'sector_code': 'BK0002', 'sector_name': '新能源汽车', 'change_percent': 2.8, 'amount': 4500000},
+            {'sector_code': 'BK0003', 'sector_name': '半导体', 'change_percent': 2.5, 'amount': 4200000},
+            {'sector_code': 'BK0004', 'sector_name': '军工', 'change_percent': 2.0, 'amount': 3800000},
+            {'sector_code': 'BK0005', 'sector_name': '医药生物', 'change_percent': 1.8, 'amount': 3500000},
         ]
 
     def get_sector_stocks(self, sector_code: str, top_n: int = 5) -> List[Dict]:
@@ -176,9 +180,10 @@ class SectorScanner:
             print("❌ 未获取到热门板块")
             return {'sectors': [], 'stocks': [], 'scan_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-        print(f"✅ 获取到 {len(sectors)} 个热门板块:")
+        print(f"✅ 获取到 {len(sectors)} 个热门板块 (按热度排序):")
         for sector in sectors:
-            print(f"   - {sector['sector_name']} ({sector['change_percent']:+.2f}%)")
+            amount_wan = sector.get('amount', 0) / 10000  # 转换为万元
+            print(f"   - {sector['sector_name']} ({sector['change_percent']:+.2f}%) 成交额: {amount_wan:.0f}万元")
 
         # 获取每个板块的前N只股票
         all_stocks = []

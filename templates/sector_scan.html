@@ -428,7 +428,7 @@
         <div class="header">
             <div class="header-left">
                 <h1>🔍 热门板块扫描</h1>
-                <p>展示前5热门板块，点击查看符合条件的股票</p>
+                <p>展示前10热门板块，点击查看符合条件的股票</p>
             </div>
             <div class="header-controls">
                 <a href="/" class="btn btn-secondary">🏠 返回主页</a>
@@ -444,7 +444,7 @@
             <div class="section-title">
                 📊 热门板块列表
                 <small style="color: #999; font-weight: normal; margin-left: 10px;">
-                    (按涨跌幅排序)
+                    (按热度排序 - 成交额越高越热)
                 </small>
             </div>
 
@@ -536,8 +536,8 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        sector_count: 5,
-                        stocks_per_sector: 5
+                        sector_count: 10,
+                        stocks_per_sector: 10
                     })
                 });
 
@@ -575,9 +575,24 @@
                 const filteredCount = sectorStockCounts[sector.sector_name] || 0;
                 const changeClass = sector.change_percent >= 0 ? 'sector-change-up' : 'sector-change-down';
 
+                // 成交额转换为万元或亿元
+                let amountDisplay = '';
+                if (sector.amount) {
+                    const amountWan = sector.amount / 10000;
+                    if (amountWan >= 10000) {
+                        amountDisplay = `${(amountWan / 10000).toFixed(1)}亿元`;
+                    } else {
+                        amountDisplay = `${amountWan.toFixed(0)}万元`;
+                    }
+                }
+
                 return `
                     <div class="sector-card" onclick="viewSectorDetail('${sector.sector_name}', '${sector.sector_code}')">
                         <div class="sector-name">${sector.sector_name}</div>
+                        <div class="sector-info">
+                            <span class="sector-label">热度(成交额):</span>
+                            <span class="sector-value" style="color: #FF9800;">🔥 ${amountDisplay}</span>
+                        </div>
                         <div class="sector-info">
                             <span class="sector-label">板块涨跌:</span>
                             <span class="sector-value ${changeClass}">${sector.change_percent >= 0 ? '+' : ''}${sector.change_percent}%</span>
