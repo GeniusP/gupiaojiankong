@@ -42,8 +42,12 @@ class TencentFinanceCollector(DataCollector):
             if stock_code.startswith("6") or stock_code.startswith("5"):
                 # 6开头是上交所股票，5开头是上交所ETF基金
                 symbol = f"sh{stock_code}"
-            elif stock_code.startswith("0") or stock_code.startswith("3"):
+            elif stock_code.startswith("0") or stock_code.startswith("3") or stock_code.startswith("1"):
+                # 0/3开头是深交所股票，1开头是深交所ETF基金
                 symbol = f"sz{stock_code}"
+            elif stock_code.startswith("4") or stock_code.startswith("8"):
+                # 4/8开头是北交所股票
+                symbol = f"bj{stock_code}"
             else:
                 symbol = stock_code
 
