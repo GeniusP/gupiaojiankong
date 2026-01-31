@@ -734,7 +734,7 @@
             // K线图容器
             html += `
                 <div class="kline-chart-section">
-                    <h4>📈 日K线图 + BBI指标</h4>
+                    <h4>📈 日K线图 + MA均线 + BBI指标</h4>
                     <div id="klineChart" style="width: 100%; height: 500px;"></div>
                 </div>
             `;
@@ -905,7 +905,7 @@
                 return;
             }
 
-            // 计算BBI指标 (MA3+MA6+MA12+MA24)/4
+            // 计算移动平均线
             const calculateMA = (data, dayCount) => {
                 const ma = [];
                 for (let i = 0; i < data.length; i++) {
@@ -922,18 +922,18 @@
                 return ma;
             };
 
-            const ma3 = calculateMA(values, 3);
-            const ma6 = calculateMA(values, 6);
-            const ma12 = calculateMA(values, 12);
-            const ma24 = calculateMA(values, 24);
+            const ma5 = calculateMA(values, 5);
+            const ma10 = calculateMA(values, 10);
+            const ma20 = calculateMA(values, 20);
+            const ma30 = calculateMA(values, 30);
 
-            // 计算BBI
+            // 计算BBI (MA5+MA10+MA20+MA30)/4
             const bbi = [];
-            for (let i = 0; i < ma3.length; i++) {
-                if (ma3[i] === null || ma6[i] === null || ma12[i] === null || ma24[i] === null) {
+            for (let i = 0; i < ma5.length; i++) {
+                if (ma5[i] === null || ma10[i] === null || ma20[i] === null || ma30[i] === null) {
                     bbi.push(null);
                 } else {
-                    bbi.push((ma3[i] + ma6[i] + ma12[i] + ma24[i]) / 4);
+                    bbi.push((ma5[i] + ma10[i] + ma20[i] + ma30[i]) / 4);
                 }
             }
 
@@ -950,7 +950,7 @@
                     }
                 },
                 legend: {
-                    data: ['日K', 'BBI'],
+                    data: ['日K', 'MA5', 'MA10', 'MA20', 'MA30', 'BBI'],
                     top: 30
                 },
                 grid: [
@@ -1040,18 +1040,81 @@
                         }
                     },
                     {
+                        name: 'MA5',
+                        type: 'line',
+                        data: ma5,
+                        smooth: true,
+                        lineStyle: {
+                            width: 1.5,
+                            color: '#FFEB3B'
+                        },
+                        itemStyle: {
+                            color: '#FFEB3B'
+                        },
+                        symbol: 'none'
+                    },
+                    {
+                        name: 'MA10',
+                        type: 'line',
+                        data: ma10,
+                        smooth: true,
+                        lineStyle: {
+                            width: 1.5,
+                            color: '#00BCD4'
+                        },
+                        itemStyle: {
+                            color: '#00BCD4'
+                        },
+                        symbol: 'none'
+                    },
+                    {
+                        name: 'MA20',
+                        type: 'line',
+                        data: ma20,
+                        smooth: true,
+                        lineStyle: {
+                            width: 1.5,
+                            color: '#E91E63'
+                        },
+                        itemStyle: {
+                            color: '#E91E63'
+                        },
+                        symbol: 'none'
+                    },
+                    {
+                        name: 'MA30',
+                        type: 'line',
+                        data: ma30,
+                        smooth: true,
+                        lineStyle: {
+                            width: 1.5,
+                            color: '#9C27B0'
+                        },
+                        itemStyle: {
+                            color: '#9C27B0'
+                        },
+                        symbol: 'none'
+                    },
+                    {
                         name: 'BBI',
                         type: 'line',
                         data: bbi,
                         smooth: true,
+                        zlevel: 10,
                         lineStyle: {
-                            width: 2,
-                            color: '#FF9800'
+                            width: 3,
+                            color: '#FF9800',
+                            type: 'solid'
                         },
                         itemStyle: {
                             color: '#FF9800'
                         },
-                        symbol: 'none'
+                        symbol: 'none',
+                        emphasis: {
+                            lineStyle: {
+                                width: 4
+                            }
+                        }
                     },
                     {
                         name: '成交量',
