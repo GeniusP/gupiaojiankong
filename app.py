@@ -377,6 +377,31 @@ def stock_search_api():
         })
 
 
+@app.route('/api/stock-kline', methods=['GET'])
+def stock_kline_api():
+    """K线数据API - 获取股票历史K线数据"""
+    try:
+        stock_code = request.args.get('stock_code', '').strip()
+        count = int(request.args.get('count', 100))  # 默认100条数据
+
+        if not stock_code:
+            return jsonify({
+                'success': False,
+                'error': '请提供股票代码'
+            })
+
+        collector = TencentFinanceCollector()
+        result = collector.get_stock_kline_data(stock_code, count=count)
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
 @app.route('/api/analyze', methods=['POST'])
 def analyze_api():
     """

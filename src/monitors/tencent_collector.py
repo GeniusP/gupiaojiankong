@@ -266,6 +266,59 @@ class TencentFinanceCollector(DataCollector):
             traceback.print_exc()
             return []
 
+    def get_stock_kline_data(self, stock_code: str, period: str = 'daily', count: int = 100) -> Dict[str, Any]:
+        """
+        获取股票K线数据
+
+        Args:
+            stock_code: 股票代码
+            period: 周期 (daily=日K, weekly=周K, monthly=月K)
+            count: 获取数据条数
+        """
+        try:
+            # 标准化股票代码
+            symbol = stock_code
+            if any(c.isalpha() for c in stock_code):
+                symbol = f"us{stock_code.upper()}"
+            elif len(stock_code) == 5 and stock_code.startswith('0'):
+                symbol = f"hk{stock_code}"
+            elif stock_code.startswith('6') or stock_code.startswith('5'):
+                symbol = f"sh{stock_code}"
+            elif stock_code.startswith('0') or stock_code.startswith('3') or stock_code.startswith('1'):
+                symbol = f"sz{stock_code}"
+
+            # 使用新浪财经K线API
+            # 格式: sh600000.daily
+            kline_url = f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData"
+            params = {
+                'symbol': symbol,
+                'scale': '240',  # 日K
+                'ma': 'no',
+                'datalen': count
+            }
+
+            response = self.session.get(kline_url, params=params, timeout=10)
+
+            if response.status_code != 200:
+                return {'success': False, 'error': 'API调用失败'}
+
+            import json
+            try:
+                data = response.json()
+            except:
+                # 如果返回的不是JSON，尝试解析其他格式
+                return {'success': False, 'error': '数据格式错误'}
+
+            # 新浪API返回的是数组，检查是否为有效数组
+            if not data or not isinstance(data, list) or len(data) == 0:
+                return {'success': False, 'error': '无法解析K线数据'}
+
+            return {'success': True, 'data': data}
+
+        except Exception as e:
+            print(f"获取K线数据失败: {e}")
+            return {'success': False, 'error': str(e)}
+
 
 class UnifiedRealDataCollector(DataCollector):
     """

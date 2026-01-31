@@ -1076,6 +1076,12 @@
             fetchBatchData();
         }
 
+        // 跳转到详情页
+        function goToDetail(stockCode) {
+            // 跳转到主页并带上股票代码参数
+            window.location.href = `/?stock=${stockCode}`;
+        }
+
         // 删除股票
         function removeStock(code) {
             if (stockCodes.length <= 1) {
@@ -1330,8 +1336,8 @@
             const changeSign = data.change_percent >= 0 ? '+' : '';
 
             let cardHtml = `
-                <div class="stock-card">
-                    <button class="card-remove-btn" onclick="removeStock('${data.stock_code}')" title="删除此股票">×</button>
+                <div class="stock-card" onclick="goToDetail('${data.stock_code}')" style="cursor: pointer;">
+                    <button class="card-remove-btn" onclick="event.stopPropagation(); removeStock('${data.stock_code}')" title="删除此股票">×</button>
 
                     <div class="stock-header">
                         <div class="stock-name">${data.stock_name}</div>

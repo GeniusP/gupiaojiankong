@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智谱AI股票分析系统</title>
+    <!-- 引入ECharts库 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -300,6 +302,20 @@
             padding: 20px;
             border-radius: 15px;
             color: #721c24;
+        }
+
+        .kline-chart-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .kline-chart-section h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
         }
 
         .loading {
@@ -715,6 +731,14 @@
                 </div>
             `;
 
+            // K线图容器
+            html += `
+                <div class="kline-chart-section">
+                    <h4>📈 日K线图 + BBI指标</h4>
+                    <div id="klineChart" style="width: 100%; height: 500px;"></div>
+                </div>
+            `;
+
             // 图形检测
             const patternClass = getPatternClass(result.pattern_detection.type);
             html += `
@@ -795,6 +819,9 @@
             }
 
             container.innerHTML = html;
+
+            // 加载K线图
+            loadKlineChart(result.data.stock_code);
         }
 
         // 显示错误
@@ -813,6 +840,238 @@
             const now = new Date();
             const timeStr = now.toLocaleString('zh-CN');
             document.getElementById('updateTime').textContent = timeStr;
+        }
+
+        // 加载K线图
+        async function loadKlineChart(stockCode) {
+            try {
+                const response = await fetch(`/api/stock-kline?stock_code=${stockCode}&count=100`);
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    renderKlineChart(result, stockCode);
+                } else {
+                    console.error('获取K线数据失败:', result.error);
+                    const chartDom = document.getElementById('klineChart');
+                    if (chartDom) {
+                        chartDom.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">K线数据加载失败: ' + (result.error || '未知错误') + '</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('加载K线图失败:', error);
+                const chartDom = document.getElementById('klineChart');
+                if (chartDom) {
+                    chartDom.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">K线图加载失败: ' + error.message + '</p>';
+                }
+            }
+        }
+
+        // 渲染K线图
+        function renderKlineChart(result, stockCode) {
+            const chartDom = document.getElementById('klineChart');
+            if (!chartDom) {
+                console.error('找不到K线图容器');
+                return;
+            }
+
+            // 初始化ECharts
+            const myChart = echarts.init(chartDom);
+
+            // 解析K线数据
+            // 数据格式需要转换为 ECharts candlestick 格式: [open, close, low, high]
+            const dates = [];
+            const values = [];
+            const volumes = [];
+
+            // 新浪API返回的是数组,字段名是day而不是date
+            const klineData = result.data;
+            if (Array.isArray(klineData) && klineData.length > 0) {
+                klineData.forEach(item => {
+                    // 新浪API字段: day, open, close, low, high, volume
+                    dates.push(item.day);
+                    values.push([
+                        parseFloat(item.open),
+                        parseFloat(item.close),
+                        parseFloat(item.low),
+                        parseFloat(item.high)
+                    ]);
+                    volumes.push(parseFloat(item.volume));
+                });
+            }
+
+            // 如果没有数据，显示提示
+            if (values.length === 0) {
+                chartDom.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">暂无K线数据</p>';
+                return;
+            }
+
+            // 计算BBI指标 (MA3+MA6+MA12+MA24)/4
+            const calculateMA = (data, dayCount) => {
+                const ma = [];
+                for (let i = 0; i < data.length; i++) {
+                    if (i < dayCount - 1) {
+                        ma.push(null);
+                        continue;
+                    }
+                    let sum = 0;
+                    for (let j = 0; j < dayCount; j++) {
+                        sum += data[i - j][1]; // 使用收盘价
+                    }
+                    ma.push(sum / dayCount);
+                }
+                return ma;
+            };
+
+            const ma3 = calculateMA(values, 3);
+            const ma6 = calculateMA(values, 6);
+            const ma12 = calculateMA(values, 12);
+            const ma24 = calculateMA(values, 24);
+
+            // 计算BBI
+            const bbi = [];
+            for (let i = 0; i < ma3.length; i++) {
+                if (ma3[i] === null || ma6[i] === null || ma12[i] === null || ma24[i] === null) {
+                    bbi.push(null);
+                } else {
+                    bbi.push((ma3[i] + ma6[i] + ma12[i] + ma24[i]) / 4);
+                }
+            }
+
+            // 配置图表选项
+            const option = {
+                title: {
+                    text: `${stockCode} 日K线图`,
+                    left: 'center'
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: ['日K', 'BBI'],
+                    top: 30
+                },
+                grid: [
+                    {
+                        left: '10%',
+                        right: '10%',
+                        top: '15%',
+                        height: '60%'
+                    },
+                    {
+                        left: '10%',
+                        right: '10%',
+                        top: '80%',
+                        height: '10%'
+                    }
+                ],
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: dates,
+                        gridIndex: 0,
+                        axisLabel: {
+                            show: false
+                        }
+                    },
+                    {
+                        type: 'category',
+                        gridIndex: 1,
+                        axisLabel: {
+                            show: false
+                        },
+                        data: dates
+                    }
+                ],
+                yAxis: [
+                    {
+                        scale: true,
+                        gridIndex: 0,
+                        splitArea: {
+                            show: true
+                        }
+                    },
+                    {
+                        scale: true,
+                        gridIndex: 1,
+                        splitNumber: 2,
+                        axisLabel: {
+                            show: false
+                        },
+                        axisLine: {
+                            show: false
+                        },
+                        splitLine: {
+                            show: false
+                        },
+                        splitArea: {
+                            show: true
+                        }
+                    }
+                ],
+                dataZoom: [
+                    {
+                        type: 'inside',
+                        xAxisIndex: 0,
+                        start: 50,
+                        end: 100
+                    },
+                    {
+                        show: true,
+                        xAxisIndex: 0,
+                        type: 'slider',
+                        top: '90%',
+                        start: 50,
+                        end: 100
+                    }
+                ],
+                series: [
+                    {
+                        name: '日K',
+                        type: 'candlestick',
+                        data: values,
+                        itemStyle: {
+                            color: '#ef232a',
+                            color0: '#14a143',
+                            borderColor: '#ef232a',
+                            borderColor0: '#14a143'
+                        }
+                    },
+                    {
+                        name: 'BBI',
+                        type: 'line',
+                        data: bbi,
+                        smooth: true,
+                        lineStyle: {
+                            width: 2,
+                            color: '#FF9800'
+                        },
+                        itemStyle: {
+                            color: '#FF9800'
+                        },
+                        symbol: 'none'
+                    },
+                    {
+                        name: '成交量',
+                        type: 'bar',
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        data: volumes,
+                        itemStyle: {
+                            color: 'rgba(76, 130, 200, 0.5)'
+                        }
+                    }
+                ]
+            };
+
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
         }
 
         // 获取贵金属价格
@@ -877,6 +1136,14 @@
             updateTime();
             fetchMetalsPrices(); // 加载贵金属价格
             loadQuickAnalysisData(); // 加载快速分析按钮的实时数据
+
+            // 检查URL参数中是否有股票代码，如果有则自动分析
+            const urlParams = new URLSearchParams(window.location.search);
+            const stockCode = urlParams.get('stock');
+            if (stockCode) {
+                document.getElementById('stockCode').value = stockCode;
+                analyzeStock();
+            }
 
             // 自动聚焦输入框
             document.getElementById('stockCode').focus();
