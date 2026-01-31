@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, jsonify
 import asyncio
 import sys
 import os
+import re
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -80,7 +81,7 @@ def sector_scan_api():
                 change_percent = ((real_data['实时价'] - prev_close) / prev_close * 100) if prev_close > 0 else 0
 
                 stock_info = {
-                    'stock_code': stock_code,
+                    'stock_code': real_data.get('股票代码'),  # 使用标准化后的代码
                     'stock_name': stock['stock_name'],
                     'sector_name': stock['sector_name'],
                     'sector_change': stock['sector_change'],
@@ -130,9 +131,11 @@ def stock_detail_api(stock_code):
         real_data = collector.get_stock_realtime_data(stock_code)
 
         if not real_data or not real_data.get('股票名称'):
+            # 标准化股票代码用于错误提示
+            display_code = stock_code.upper() if any(c.isalpha() for c in stock_code) else stock_code
             return jsonify({
                 'success': False,
-                'error': f'无法获取股票 {stock_code} 的数据'
+                'error': f'无法获取股票 {display_code} 的数据'
             })
 
         # 检测图形类型
@@ -144,7 +147,7 @@ def stock_detail_api(stock_code):
 
         # 准备详细数据
         detail = {
-            'stock_code': stock_code,
+            'stock_code': real_data.get('股票代码'),  # 使用标准化后的代码
             'stock_name': real_data.get('股票名称'),
             'current_price': real_data.get('实时价'),
             'open_price': real_data.get('开盘价'),
@@ -260,7 +263,8 @@ def batch_quick_analyze_api():
         data = request.json
 
         # 从请求中获取股票列表，如果没有则使用默认列表
-        stock_codes = data.get('stock_codes', ['601869', '518880', '603993', '601138'])
+        # 支持 codes 和 stock_codes 两种字段名
+        stock_codes = data.get('codes') or data.get('stock_codes', ['601869', '518880', '603993', '601138'])
 
         # 异步批量分析
         loop = asyncio.new_event_loop()
@@ -309,6 +313,61 @@ def metals_prices_api():
             return jsonify({
                 'success': False,
                 'error': '无法获取贵金属价格'
+            })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@app.route('/api/stock-search', methods=['GET'])
+def stock_search_api():
+    """股票搜索API - 通过名称或代码搜索股票"""
+    try:
+        keyword = request.args.get('keyword', '').strip()
+
+        if not keyword:
+            return jsonify({
+                'success': False,
+                'error': '请提供搜索关键词'
+            })
+
+        # 如果关键词本身是有效的股票代码，直接返回
+        # 支持：6位数字(A股)、5位数字(港股)、纯字母(美股)
+        is_valid_code = (
+            re.match(r'^\d{6}$', keyword) or      # A股
+            re.match(r'^\d{5}$', keyword) or      # 港股
+            re.match(r'^[a-zA-Z]+$', keyword)     # 美股
+        )
+
+        if is_valid_code:
+            # 标准化股票代码
+            if re.match(r'^[a-zA-Z]+$', keyword):
+                keyword = keyword.upper()
+            return jsonify({
+                'success': True,
+                'results': [{
+                    'code': keyword,
+                    'name': keyword,
+                    'market': 'unknown'
+                }]
+            })
+
+        # 使用腾讯财经API搜索
+        collector = TencentFinanceCollector()
+        results = collector.search_stock_by_name(keyword)
+
+        if results:
+            return jsonify({
+                'success': True,
+                'results': results
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '未找到匹配的股票'
             })
 
     except Exception as e:
@@ -371,9 +430,11 @@ async def analyze_stock_async(stock_code: str):
         real_data = collector.get_stock_realtime_data(stock_code)
 
         if not real_data or not real_data.get("股票名称"):
+            # 标准化股票代码用于错误提示
+            display_code = stock_code.upper() if any(c.isalpha() for c in stock_code) else stock_code
             return {
                 'success': False,
-                'error': f'无法获取股票 {stock_code} 的数据'
+                'error': f'无法获取股票 {display_code} 的数据'
             }
 
         # 2. 检测图形类型
@@ -419,7 +480,7 @@ async def analyze_stock_async(stock_code: str):
         response = {
             'success': True,
             'data': {
-                'stock_code': stock_code,
+                'stock_code': real_data.get('股票代码'),  # 使用标准化后的股票代码
                 'stock_name': real_data.get('股票名称'),
                 'open_price': real_data.get('开盘价'),
                 'current_price': real_data.get('实时价'),
@@ -612,4 +673,7 @@ if __name__ == '__main__':
     print("="*70)
     print()
 
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # 禁用自动重载，避免文件变化导致服务器频繁重启
+    # use_reloader=False: 禁用文件监控和自动重载
+    # debug=True: 保留调试错误信息功能
+    app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)

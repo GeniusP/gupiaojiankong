@@ -38,8 +38,21 @@ class TencentFinanceCollector(DataCollector):
             stock_code: 股票代码（如 sh600000 或 sz000001）
         """
         try:
+            # 标准化股票代码
+            normalized_code = stock_code  # 默认使用原始代码
+            symbol = stock_code  # 默认使用原始代码
+
             # 处理股票代码格式
-            if stock_code.startswith("6") or stock_code.startswith("5"):
+            # 美股判断：包含字母（如AAPL、TSLA）
+            if any(c.isalpha() for c in stock_code):
+                # 美股，统一转换为大写（腾讯API要求）
+                normalized_code = stock_code.upper()
+                symbol = f"us{normalized_code}"
+            # 港股判断：5位数字且以0开头（如00700、01810）
+            elif len(stock_code) == 5 and stock_code.startswith("0"):
+                # 港股
+                symbol = f"hk{stock_code}"
+            elif stock_code.startswith("6") or stock_code.startswith("5"):
                 # 6开头是上交所股票，5开头是上交所ETF基金
                 symbol = f"sh{stock_code}"
             elif stock_code.startswith("0") or stock_code.startswith("3") or stock_code.startswith("1"):
@@ -48,8 +61,6 @@ class TencentFinanceCollector(DataCollector):
             elif stock_code.startswith("4") or stock_code.startswith("8"):
                 # 4/8开头是北交所股票
                 symbol = f"bj{stock_code}"
-            else:
-                symbol = stock_code
 
             # 调用腾讯API
             url = f"{self.base_url}/q={symbol}"
@@ -81,13 +92,14 @@ class TencentFinanceCollector(DataCollector):
             current_price = float(fields[3]) if fields[3] else 0
             high_price = float(fields[33]) if fields[33] else 0
             low_price = float(fields[34]) if fields[34] else 0
-            volume = int(fields[36]) if fields[36] else 0
+            # 港股成交量可能是小数，需要先转float再转int
+            volume = int(float(fields[36])) if fields[36] else 0
 
             # 计算涨停价
             limit_up = round(close_prev * 1.1, 2) if close_prev > 0 else 0
 
             return {
-                "股票代码": stock_code,
+                "股票代码": normalized_code,  # 使用标准化后的代码（美股统一大写）
                 "股票名称": stock_name,
                 "开盘价": open_price,
                 "实时价": current_price,
@@ -102,7 +114,7 @@ class TencentFinanceCollector(DataCollector):
             }
 
         except Exception as e:
-            print(f"获取股票{stock_code}数据失败: {e}")
+            print(f"获取股票{normalized_code}数据失败: {e}")
             return {}
 
     def get_sector_data(self, sector_name: str) -> Dict[str, Any]:
@@ -144,6 +156,115 @@ class TencentFinanceCollector(DataCollector):
 
         except Exception as e:
             return {"涨跌幅": 0}
+
+    def search_stock_by_name(self, keyword: str) -> list:
+        """
+        通过股票名称或代码搜索股票
+
+        Args:
+            keyword: 股票名称或代码（如"贵州茅台"、"茅台"、"600519"）
+
+        Returns:
+            匹配的股票列表，每项包含 {code, name, market}
+        """
+        try:
+            # 使用腾讯财经的智能搜索API
+            search_url = "https://smartbox.gtimg.cn/s3/"
+            params = {
+                'q': keyword,
+                't': 'all',  # 搜索全部类型
+                'c': 'stock',  # 只搜索股票
+            }
+
+            response = self.session.get(search_url, params=params, timeout=10)
+
+            if response.status_code != 200:
+                return []
+
+            # 获取原始字节内容并手动解码
+            content = response.content
+
+            # 尝试多种编码方式
+            data_str = None
+            for encoding in ['gbk', 'utf-8', 'gb2312']:
+                try:
+                    data_str = content.decode(encoding)
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+
+            if not data_str or 'v_hint=' not in data_str:
+                return []
+
+            # 提取hint数据
+            hint_start = data_str.find('v_hint="') + 8
+            hint_end = data_str.find('"', hint_start)
+            hint_data = data_str[hint_start:hint_end]
+
+            if not hint_data:
+                return []
+
+            # 解析搜索结果
+            # 多个结果用 ^ 分隔，每个结果格式：~市场~代码~名称~拼音~类型
+            results = []
+
+            # 先按 ^ 分割多个结果
+            result_groups = hint_data.split('^')
+
+            for group in result_groups:
+                if not group:
+                    continue
+
+                # 每个 group 按 ~ 分割字段
+                items = group.split('~')
+
+                # 至少需要: 市场、代码、名称、拼音
+                if len(items) >= 4:
+                    market_prefix = items[0]
+                    code = items[1]
+                    name = items[2]
+                    pinyin = items[3] if len(items) > 3 else ''
+
+                    if code and name:
+                        # 确保name是有效的Unicode字符串
+                        try:
+                            # 如果name包含Unicode转义序列，需要解码
+                            if '\\u' in name:
+                                # 解码Unicode转义序列
+                                name = name.encode().decode('unicode_escape')
+                            # 确保是字符串
+                            name = str(name)
+                        except:
+                            name = str(name)
+
+                        # 根据市场前缀判断市场类型
+                        market = "unknown"
+                        if market_prefix == 'sh':
+                            market = "sh"  # 上海
+                        elif market_prefix == 'sz':
+                            market = "sz"  # 深圳
+                        elif market_prefix == 'hk':
+                            market = "hk"  # 港股
+                        elif market_prefix == 'us':
+                            market = "us"  # 美股
+
+                        results.append({
+                            'code': str(code),
+                            'name': name,
+                            'market': market
+                        })
+
+            # 按优先级排序：A股 > 港股 > 美股
+            priority = {'sh': 1, 'sz': 1, 'bj': 1, 'hk': 2, 'us': 3, 'unknown': 4}
+            results.sort(key=lambda x: priority.get(x['market'], 4))
+
+            return results[:8]  # 返回前8个结果
+
+        except Exception as e:
+            print(f"搜索股票失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
 
 
 class UnifiedRealDataCollector(DataCollector):

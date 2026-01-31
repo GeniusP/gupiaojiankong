@@ -357,6 +357,21 @@
             font-size: 0.9em;
         }
 
+        .quick-btn .price-info {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.85em;
+            font-weight: normal;
+        }
+
+        .quick-btn .price-up {
+            color: #d32f2f;
+        }
+
+        .quick-btn .price-down {
+            color: #388e3c;
+        }
+
         .update-time {
             text-align: center;
             color: rgba(255, 255, 255, 0.8);
@@ -421,23 +436,28 @@
         </div>
 
         <div class="main-card">
-            <h2 style="margin-bottom: 20px; color: #333;">快速分析</h2>
-            <div class="quick-analysis">
-                <div class="quick-btn" onclick="quickAnalyze('601869')">
+            <h2 style="margin-bottom: 20px; color: #333;">⚡ 快速分析</h2>
+            <div class="quick-analysis" id="quickAnalysis">
+                <!-- 页面加载时自动填充实时数据 -->
+                <div class="quick-btn" onclick="quickAnalyze('601869')" id="quick-601869">
                     <span class="code">601869</span>
                     <span class="name">长飞光纤</span>
+                    <span class="price-info">加载中...</span>
                 </div>
-                <div class="quick-btn" onclick="quickAnalyze('518880')">
+                <div class="quick-btn" onclick="quickAnalyze('518880')" id="quick-518880">
                     <span class="code">518880</span>
                     <span class="name">黄金ETF</span>
+                    <span class="price-info">加载中...</span>
                 </div>
-                <div class="quick-btn" onclick="quickAnalyze('603993')">
+                <div class="quick-btn" onclick="quickAnalyze('603993')" id="quick-603993">
                     <span class="code">603993</span>
                     <span class="name">洛阳钼业</span>
+                    <span class="price-info">加载中...</span>
                 </div>
-                <div class="quick-btn" onclick="quickAnalyze('601138')">
+                <div class="quick-btn" onclick="quickAnalyze('601138')" id="quick-601138">
                     <span class="code">601138</span>
                     <span class="name">工业富联</span>
+                    <span class="price-info">加载中...</span>
                 </div>
             </div>
 
@@ -476,13 +496,88 @@
     </div>
 
     <script>
+        // 加载快速分析按钮的实时数据
+        async function loadQuickAnalysisData() {
+            const stockCodes = ['601869', '518880', '603993', '601138'];
+
+            try {
+                const response = await fetch('/api/batch-quick-analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ stock_codes: stockCodes })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.results) {
+                    result.results.forEach(r => {
+                        if (r.success && r.data) {
+                            const btn = document.getElementById(`quick-${r.data.stock_code}`);
+                            if (btn) {
+                                const priceInfo = btn.querySelector('.price-info');
+                                if (priceInfo) {
+                                    const changeClass = r.data.change_percent >= 0 ? 'price-up' : 'price-down';
+                                    const changeSign = r.data.change_percent >= 0 ? '+' : '';
+                                    // 根据股票代码类型判断货币符号
+                                    const isUSStock = /^[A-Z]+$/.test(r.data.stock_code);
+                                    const isHKStock = /^\d{5}$/.test(r.data.stock_code) && r.data.stock_code.startsWith('0');
+                                    const currency = isUSStock ? '$' : (isHKStock ? 'HK$' : '¥');
+                                    priceInfo.className = `price-info ${changeClass}`;
+                                    priceInfo.innerHTML = `${currency}${r.data.current_price}<br>${changeSign}${r.data.change_percent}%`;
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('加载快速分析数据失败:', error);
+            }
+        }
+
         // 分析股票
         async function analyzeStock() {
-            const stockCode = document.getElementById('stockCode').value.trim();
+            const stockCodeInput = document.getElementById('stockCode');
+            let stockCode = stockCodeInput.value.trim();
 
             if (!stockCode) {
                 alert('请输入股票代码');
                 return;
+            }
+
+            // 美股代码标准化为大写
+            if (/^[a-zA-Z]+$/.test(stockCode)) {
+                stockCode = stockCode.toUpperCase();
+            }
+
+            // 常见美股代码映射（用于纠正错误输入）
+            const commonUSStocks = {
+                'APPL': 'AAPL',  // 苹果（常见错误）
+                'TSLA': 'TSLA',
+                'NVDA': 'NVDA',
+                'MSFT': 'MSFT',
+                'GOOG': 'GOOG',
+                'META': 'META',
+                'AMZN': 'AMZN',
+                'NFLX': 'NFLX',
+                'BABA': 'BABA',
+                'TCEHY': 'TCEHY'
+            };
+
+            // 检查是否是常见的错误输入，提示正确代码
+            if (commonUSStocks[stockCode] && commonUSStocks[stockCode] !== stockCode) {
+                const correctCode = commonUSStocks[stockCode];
+                const confirmed = confirm(
+                    `⚠️ 检测到可能的输入错误\n\n` +
+                    `您输入的代码：${stockCode}\n` +
+                    `正确的代码可能是：${correctCode}\n\n` +
+                    `是否使用正确的代码 ${correctCode}？`
+                );
+                if (confirmed) {
+                    stockCode = correctCode;
+                    stockCodeInput.value = correctCode;
+                }
             }
 
             showLoading(true);
@@ -568,6 +663,15 @@
 
             let html = '';
 
+            // 判断股票类型
+            const isUSStock = /^[A-Z]+$/.test(result.data.stock_code);
+            const isHKStock = /^\d{5}$/.test(result.data.stock_code) && result.data.stock_code.startsWith('0');
+
+            // 根据股票类型设置货币符号和单位
+            const currency = isUSStock ? '$' : (isHKStock ? 'HK$' : '¥');
+            const volumeUnit = isUSStock ? '股' : '万手';
+            const priceSuffix = isUSStock ? '' : ' 元';
+
             // 股票信息
             html += `
                 <div class="stock-info">
@@ -578,12 +682,12 @@
                     <div class="info-grid">
                         <div class="info-item">
                             <div class="label">开盘价</div>
-                            <div class="value">${result.data.open_price} 元</div>
+                            <div class="value">${currency}${result.data.open_price}${priceSuffix}</div>
                         </div>
                         <div class="info-item">
                             <div class="label">实时价</div>
                             <div class="value ${result.data.change_percent >= 0 ? 'up' : 'down'}">
-                                ${result.data.current_price} 元
+                                ${currency}${result.data.current_price}${priceSuffix}
                                 <span style="font-size: 0.8em; margin-left: 10px;">
                                     (${result.data.change_percent >= 0 ? '+' : ''}${result.data.change_percent}%)
                                 </span>
@@ -591,15 +695,17 @@
                         </div>
                         <div class="info-item">
                             <div class="label">最高价</div>
-                            <div class="value">${result.data.high_price} 元</div>
+                            <div class="value">${currency}${result.data.high_price}${priceSuffix}</div>
                         </div>
                         <div class="info-item">
-                            <div class="label">涨停价</div>
-                            <div class="value">${result.data.limit_up} 元</div>
+                            <div class="label">${isUSStock ? '前收盘' : '涨停价'}</div>
+                            <div class="value">${isUSStock ? currency + (result.data.limit_up / 1.1).toFixed(2) : currency + result.data.limit_up + priceSuffix}</div>
                         </div>
                         <div class="info-item">
                             <div class="label">成交量</div>
-                            <div class="value">${(result.data.volume / 10000).toFixed(2)} 万手</div>
+                            <div class="value">${isUSStock ?
+                                (result.data.volume / 10000).toFixed(2) + ' 万股' :
+                                (result.data.volume / 10000).toFixed(2) + ' 万手'}</div>
                         </div>
                         <div class="info-item">
                             <div class="label">更新时间</div>
@@ -639,9 +745,12 @@
                 const suggestion = result.operation_suggestion;
                 let priceLevelsHtml = '';
                 if (suggestion.price_levels && Object.keys(suggestion.price_levels).length > 0) {
+                    // 根据股票类型设置货币符号
+                    const levelsCurrency = /^[A-Z]+$/.test(result.data.stock_code) ? '$' : '¥';
+
                     priceLevelsHtml = '<div style="margin-top: 12px;"><strong>📍 关键价位:</strong><ul style="margin: 8px 0; padding-left: 24px;">';
                     for (const [key, value] of Object.entries(suggestion.price_levels)) {
-                        priceLevelsHtml += `<li>${key}: ${value} 元</li>`;
+                        priceLevelsHtml += `<li>${key}: ${levelsCurrency}${value}</li>`;
                     }
                     priceLevelsHtml += '</ul></div>';
                 }
@@ -767,6 +876,7 @@
         window.addEventListener('DOMContentLoaded', function() {
             updateTime();
             fetchMetalsPrices(); // 加载贵金属价格
+            loadQuickAnalysisData(); // 加载快速分析按钮的实时数据
 
             // 自动聚焦输入框
             document.getElementById('stockCode').focus();
