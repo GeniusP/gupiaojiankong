@@ -432,8 +432,25 @@
             white-space: nowrap;
         }
 
-        .metals-banner-container:hover {
+        .metals-banner:hover .metals-banner-container {
             animation-play-state: paused;
+        }
+
+        .metal-item {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 30px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 8px 15px;
+            border-radius: 8px;
+        }
+
+        .metal-item:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
         }
 
         @keyframes scrollLeft {
@@ -1520,7 +1537,7 @@
 
                     if (data.gold_usd !== null && data.gold_cny !== null) {
                         metalsHTML += `
-                            <div class="metal-item">
+                            <div class="metal-item" onclick="openMetalDetail('gold', '黄金')">
                                 <span class="metal-icon">🥇</span>
                                 <span class="metal-name">黄金</span>
                                 <span class="metal-price">
@@ -1535,7 +1552,7 @@
 
                     if (data.silver_usd !== null && data.silver_cny !== null) {
                         metalsHTML += `
-                            <div class="metal-item">
+                            <div class="metal-item" onclick="openMetalDetail('silver', '白银')">
                                 <span class="metal-icon">🥈</span>
                                 <span class="metal-name">白银</span>
                                 <span class="metal-price">
@@ -1550,7 +1567,7 @@
 
                     if (data.platinum_usd !== null && data.platinum_cny !== null) {
                         metalsHTML += `
-                            <div class="metal-item">
+                            <div class="metal-item" onclick="openMetalDetail('platinum', '铂金')">
                                 <span class="metal-icon">⚪</span>
                                 <span class="metal-name">铂金</span>
                                 <span class="metal-price">
@@ -1565,7 +1582,7 @@
 
                     if (data.palladium_usd !== null && data.palladium_cny !== null) {
                         metalsHTML += `
-                            <div class="metal-item">
+                            <div class="metal-item" onclick="openMetalDetail('palladium', '钯金')">
                                 <span class="metal-icon">🔘</span>
                                 <span class="metal-name">钯金</span>
                                 <span class="metal-price">
@@ -1629,6 +1646,11 @@
 
             return (currentTime >= morningStart && currentTime <= morningEnd) ||
                    (currentTime >= afternoonStart && currentTime <= afternoonEnd);
+        }
+
+        // 打开贵金属详情页面
+        function openMetalDetail(metalType, metalName) {
+            window.open(`/metal-detail?type=${metalType}&name=${encodeURIComponent(metalName)}`, '_blank');
         }
 
         // 启动贵金属价格自动刷新（每10秒，仅在交易时间内）

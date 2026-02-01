@@ -92,7 +92,7 @@ MODEL = os.getenv("ZHIPU_MODEL", "glm-4-plus")
 def check_authentication():
     """在每个请求前检查登录状态"""
     # 排除登录、注册页面和静态文件
-    if request.path in ['/login', '/register', '/api/login', '/api/register', '/logout']:
+    if request.path in ['/login', '/register', '/api/login', '/api/register', '/logout', '/metal-detail', '/api/metal-kline']:
         return None
 
     # 排除静态文件
@@ -1014,6 +1014,191 @@ def metals_prices_api():
             'success': False,
             'error': str(e)
         })
+
+
+@app.route('/metal-detail')
+def metal_detail():
+    """贵金属详情页面"""
+    return render_template('metal_detail.html')
+
+
+@app.route('/api/metal-kline', methods=['GET'])
+def metal_kline_api():
+    """获取贵金属K线数据和AI分析API"""
+    try:
+        metal_type = request.args.get('type', 'gold')
+
+        # 获取贵金属K线数据
+        collector = PreciousMetalsCollector()
+        kline_data = collector.get_metal_kline(metal_type, days=60)
+
+        if not kline_data:
+            return jsonify({
+                'success': False,
+                'error': f'无法获取{metal_type}的K线数据'
+            })
+
+        # 计算BBI指标
+        bbi_data = calculate_bbi(kline_data)
+
+        # 获取当前价格
+        prices = collector.get_metals_prices()
+        current_price = None
+        price_change = None
+
+        if metal_type == 'gold' and prices.get('gold_cny'):
+            current_price = prices['gold_cny']
+        elif metal_type == 'silver' and prices.get('silver_cny'):
+            current_price = prices['silver_cny']
+        elif metal_type == 'platinum' and prices.get('platinum_cny'):
+            current_price = prices['platinum_cny']
+        elif metal_type == 'palladium' and prices.get('palladium_cny'):
+            current_price = prices['palladium_cny']
+
+        # 计算涨跌幅（比较最新收盘价和前一日收盘价）
+        if len(kline_data) >= 2:
+            latest_close = kline_data[-1][4]  # 最新收盘价
+            prev_close = kline_data[-2][4]    # 前一日收盘价
+            if prev_close > 0:
+                price_change = round((latest_close - prev_close) / prev_close * 100, 2)
+
+        # AI分析
+        ai_suggestion = analyze_metal_with_ai(metal_type, kline_data, bbi_data)
+
+        return jsonify({
+            'success': True,
+            'kline_data': kline_data,
+            'bbi_data': bbi_data,
+            'current_price': current_price,
+            'price_change': price_change,
+            'update_time': prices.get('update_time') if prices else None,
+            'ai_suggestion': ai_suggestion
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+def calculate_bbi(kline_data):
+    """
+    计算BBI（多空指标）
+    BBI = (MA3 + MA6 + MA12 + MA24) / 4
+    """
+    if not kline_data or len(kline_data) < 24:
+        return []
+
+    bbi_values = []
+
+    # 提取收盘价
+    closes = [item[4] for item in kline_data]
+
+    for i in range(24, len(closes)):
+        # 计算不同周期的MA
+        ma3 = sum(closes[i-2:i+1]) / 3
+        ma6 = sum(closes[i-5:i+1]) / 6
+        ma12 = sum(closes[i-11:i+1]) / 12
+        ma24 = sum(closes[i-23:i+1]) / 24
+
+        # BBI = (MA3 + MA6 + MA12 + MA24) / 4
+        bbi = (ma3 + ma6 + ma12 + ma24) / 4
+        bbi_values.append(round(bbi, 2))
+
+    # 前面24个数据点没有BBI值，用None填充
+    return [None] * 24 + bbi_values
+
+
+def analyze_metal_with_ai(metal_type, kline_data, bbi_data):
+    """
+    使用AI分析贵金属走势并给出买卖建议
+    """
+    try:
+        if not kline_data or len(kline_data) < 10:
+            return {
+                'signal': '持有',
+                'reason': '数据不足，无法进行有效分析',
+                'analysis': '暂无足够的历史数据进行分析，建议继续观察。',
+                'suggestions': ['等待更多数据积累', '关注市场动态']
+            }
+
+        # 获取最新的价格数据
+        latest = kline_data[-1]
+        current_price = latest[4]  # 收盘价
+
+        # 计算基本指标
+        closes = [item[4] for item in kline_data]
+        high_5 = max(closes[-5:])
+        low_5 = min(closes[-5:])
+        avg_5 = sum(closes[-5:]) / 5
+
+        # 获取最新BBI值
+        latest_bbi = None
+        if bbi_data and len(bbi_data) > 0:
+            for bbi in reversed(bbi_data):
+                if bbi is not None:
+                    latest_bbi = bbi
+                    break
+
+        # 技术分析
+        analysis_parts = []
+        signal = '持有'
+        signal_reason = ''
+        suggestions = []
+
+        # 1. 价格与BBI的关系
+        if latest_bbi:
+            if current_price > latest_bbi:
+                analysis_parts.append(f"当前价格({current_price:.2f})高于BBI指标({latest_bbi:.2f})，处于多头态势。")
+            elif current_price < latest_bbi:
+                analysis_parts.append(f"当前价格({current_price:.2f})低于BBI指标({latest_bbi:.2f})，处于空头态势。")
+            else:
+                analysis_parts.append(f"当前价格({current_price:.2f})与BBI指标({latest_bbi:.2f})持平。")
+
+        # 2. 近期波动分析
+        volatility = (high_5 - low_5) / avg_5 * 100 if avg_5 > 0 else 0
+        analysis_parts.append(f"近5日波动率为{volatility:.2f}%，{'波动较大' if volatility > 3 else '波动平稳'}。")
+
+        # 3. 趋势判断
+        if len(closes) >= 10:
+            ma_short = sum(closes[-5:]) / 5
+            ma_long = sum(closes[-10:]) / 10
+            if ma_short > ma_long:
+                analysis_parts.append(f"短期均线({ma_short:.2f})上穿长期均线({ma_long:.2f})，呈上升趋势。")
+                if current_price > latest_bbi if latest_bbi else True:
+                    signal = '买入'
+                    signal_reason = '价格上升趋势，且处于多头区域'
+                    suggestions = ['可考虑适量建仓', '设置止损位', '关注上方阻力位']
+            elif ma_short < ma_long:
+                analysis_parts.append(f"短期均线({ma_short:.2f})下穿长期均线({ma_long:.2f})，呈下降趋势。")
+                if current_price < latest_bbi if latest_bbi else True:
+                    signal = '卖出'
+                    signal_reason = '价格下降趋势，且处于空头区域'
+                    suggestions = ['建议减仓或观望', '注意下方支撑位', '控制风险']
+
+        # 4. 综合判断
+        if signal == '持有':
+            signal_reason = '多空信号不明确，建议观望'
+            suggestions = ['保持耐心，等待明确信号', '关注价格与BBI的交叉', '注意成交量变化']
+
+        return {
+            'signal': signal,
+            'reason': signal_reason,
+            'analysis': ' '.join(analysis_parts),
+            'suggestions': suggestions,
+            'risk_warning': '贵金属投资有风险，BBI指标仅供参考，实际操作请结合市场环境和个人风险承受能力。'
+        }
+
+    except Exception as e:
+        print(f"AI分析失败: {e}")
+        return {
+            'signal': '持有',
+            'reason': 'AI分析服务暂时不可用',
+            'analysis': '暂时无法获取AI分析，请稍后重试。',
+            'suggestions': ['建议等待AI服务恢复', '可参考技术指标自主判断'],
+            'risk_warning': '投资有风险，入市需谨慎。'
+        }
 
 
 @app.route('/api/index-data', methods=['GET'])

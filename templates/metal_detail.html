@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贵金属详情 - 智谱AI股票分析系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding-top: 60px;
+        }
+
+        /* 顶部导航栏样式 */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 0;
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+        }
+
+        .navbar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .navbar-logo .logo-icon {
+            font-size: 24px;
+        }
+
+        .navbar-logo .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .navbar-item {
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .navbar-item .icon {
+            margin-right: 5px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 贵金属切换标签 */
+        .metal-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .metal-tab {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metal-tab:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .metal-tab.active {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-info {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+
+        .info-label {
+            color: #666;
+            margin-right: 5px;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        #klineChart {
+            width: 100%;
+            height: 500px;
+        }
+
+        .ai-suggestion {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .ai-suggestion h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .suggestion-content {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.8;
+            color: #333;
+        }
+
+        .trading-signal {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .signal-buy {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .signal-sell {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .signal-hold {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+            color: #856404;
+            border: 2px solid #ffc107;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: white;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #666eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="top-navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">智谱AI股票分析</span>
+            </a>
+            <div class="navbar-menu">
+                <a href="/" class="navbar-item">
+                    <span class="icon">🏠</span>首页
+                </a>
+                <a href="/sector-scan" class="navbar-item">
+                    <span class="icon">🔍</span>板块扫描
+                </a>
+                <a href="/daily-recommend" class="navbar-item">
+                    <span class="icon">🌟</span>每日推荐
+                </a>
+                <a href="/finance-news" class="navbar-item">
+                    <span class="icon">📰</span>财经新闻
+                </a>
+                <a href="/batch-quick" class="navbar-item">
+                    <span class="icon">📈</span>实时监控
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="/" class="back-btn">← 返回首页</a>
+
+        <!-- 贵金属切换标签 -->
+        <div class="metal-tabs">
+            <div class="metal-tab" data-type="gold" data-name="黄金">
+                <span>🥇</span> 黄金
+            </div>
+            <div class="metal-tab" data-type="silver" data-name="白银">
+                <span>🥈</span> 白银
+            </div>
+            <div class="metal-tab" data-type="platinum" data-name="铂金">
+                <span>⚪</span> 铂金
+            </div>
+            <div class="metal-tab" data-type="palladium" data-name="钯金">
+                <span>⚫</span> 钯金
+            </div>
+        </div>
+
+        <div class="header">
+            <h1><span id="metalIcon">🥇</span> <span id="metalName">黄金</span> - 技术分析</h1>
+            <div class="header-info">
+                <div class="info-item">
+                    <span class="info-label">当前价格:</span>
+                    <span class="info-value" id="currentPrice">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">涨跌幅:</span>
+                    <span class="info-value" id="priceChange">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">更新时间:</span>
+                    <span class="info-value" id="updateTime">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>正在加载K线数据和AI分析...</p>
+        </div>
+
+        <div id="chartContainer" class="chart-container" style="display: none;">
+            <div id="klineChart"></div>
+        </div>
+
+        <div id="aiSuggestion" class="ai-suggestion" style="display: none;">
+            <h2>🤖 AI买卖建议</h2>
+            <div id="suggestionContent" class="suggestion-content"></div>
+            <div id="tradingSignal"></div>
+        </div>
+    </div>
+
+    <script>
+        // 获取URL参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const metalType = urlParams.get('type') || 'gold';
+        const metalName = decodeURIComponent(urlParams.get('name') || '黄金');
+
+        // 贵金属图标映射
+        const metalIcons = {
+            'gold': '🥇',
+            'silver': '🥈',
+            'platinum': '⚪',
+            'palladium': '🔘'
+        };
+
+        // 更新页面标题和图标
+        document.getElementById('metalName').textContent = metalName;
+        document.getElementById('metalIcon').textContent = metalIcons[metalType] || '💰';
+
+        // 页面加载时获取数据
+        window.addEventListener('DOMContentLoaded', function() {
+            // 设置当前激活的标签
+            updateActiveTab(metalType);
+
+            // 为所有标签添加点击事件
+            const tabs = document.querySelectorAll('.metal-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const newType = this.getAttribute('data-type');
+                    const newName = this.getAttribute('data-name');
+
+                    // 更新URL参数
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('type', newType);
+                    newUrl.searchParams.set('name', newName);
+                    window.history.pushState({}, '', newUrl);
+
+                    // 更新页面显示
+                    switchMetal(newType, newName);
+                });
+            });
+
+            fetchMetalData();
+        });
+
+        function updateActiveTab(type) {
+            const tabs = document.querySelectorAll('.metal-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.getAttribute('data-type') === type) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        function switchMetal(type, name) {
+            // 更新全局变量
+            window.currentMetalType = type;
+            window.currentMetalName = name;
+
+            // 更新页面标题和图标
+            document.getElementById('metalName').textContent = name;
+            document.getElementById('metalIcon').textContent = metalIcons[type] || '💰';
+
+            // 更新激活标签
+            updateActiveTab(type);
+
+            // 重置显示
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('chartContainer').style.display = 'none';
+            document.getElementById('aiSuggestion').style.display = 'none';
+            document.getElementById('currentPrice').textContent = '--';
+            document.getElementById('priceChange').textContent = '--';
+
+            // 重新获取数据
+            fetchMetalData();
+        }
+
+        async function fetchMetalData() {
+            const type = window.currentMetalType || metalType;
+            try {
+                const response = await fetch(`/api/metal-kline?type=${type}`);
+                const result = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (result.success) {
+                    // 更新价格信息
+                    if (result.current_price) {
+                        document.getElementById('currentPrice').textContent = `¥${result.current_price}`;
+                    }
+                    if (result.price_change) {
+                        const sign = result.price_change >= 0 ? '+' : '';
+                        document.getElementById('priceChange').textContent = `${sign}${result.price_change}%`;
+                        document.getElementById('priceChange').style.color = result.price_change >= 0 ? '#e74c3c' : '#27ae60';
+                    }
+                    if (result.update_time) {
+                        document.getElementById('updateTime').textContent = result.update_time;
+                    }
+
+                    // 绘制K线图
+                    if (result.kline_data && result.kline_data.length > 0) {
+                        document.getElementById('chartContainer').style.display = 'block';
+                        drawKlineChart(result.kline_data, result.bbi_data);
+                    }
+
+                    // 显示AI建议
+                    if (result.ai_suggestion) {
+                        document.getElementById('aiSuggestion').style.display = 'block';
+                        displayAISuggestion(result.ai_suggestion);
+                    }
+                } else {
+                    alert('获取数据失败：' + (result.error || '未知错误'));
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                console.error('获取贵金属数据失败:', error);
+                alert('网络错误，请稍后重试');
+            }
+        }
+
+        function drawKlineChart(klineData, bbiData) {
+            const chartDom = document.getElementById('klineChart');
+            const myChart = echarts.init(chartDom);
+
+            // 数据格式：[日期, 开盘, 最高, 最低, 收盘]
+            // ECharts candlestick格式: [开盘, 收盘, 最低, 最高]
+            const dates = klineData.map(item => item[0]);
+            const values = klineData.map(item => [item[1], item[4], item[3], item[2]]);
+
+            // BBI数据
+            const bbiValues = bbiData || [];
+
+            const option = {
+                title: {
+                    text: `${metalName}日K线 + BBI指标`,
+                    left: 'center',
+                    textStyle: {
+                        color: '#333',
+                        fontSize: 16
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: ['日K', 'BBI'],
+                    top: 30
+                },
+                grid: [
+                    {
+                        left: '10%',
+                        right: '10%',
+                        top: '15%',
+                        height: '60%'
+                    }
+                ],
+                xAxis: {
+                    type: 'category',
+                    data: dates,
+                    scale: true,
+                    boundaryGap: false,
+                    axisLine: { onZero: false },
+                    splitLine: { show: false },
+                    min: 'dataMin',
+                    max: 'dataMax'
+                },
+                yAxis: {
+                    scale: true,
+                    splitArea: {
+                        show: true
+                    }
+                },
+                dataZoom: [
+                    {
+                        type: 'inside',
+                        start: 50,
+                        end: 100
+                    },
+                    {
+                        show: true,
+                        type: 'slider',
+                        top: '80%',
+                        start: 50,
+                        end: 100
+                    }
+                ],
+                series: [
+                    {
+                        name: '日K',
+                        type: 'candlestick',
+                        data: values,
+                        itemStyle: {
+                            color: '#ef232a',
+                            color0: '#14a143',
+                            borderColor: '#ef232a',
+                            borderColor0: '#14a143'
+                        }
+                    },
+                    {
+                        name: 'BBI',
+                        type: 'line',
+                        data: bbiValues,
+                        smooth: true,
+                        lineStyle: {
+                            opacity: 0.8,
+                            width: 2,
+                            color: '#FFD700'
+                        },
+                        itemStyle: {
+                            color: '#FFD700'
+                        }
+                    }
+                ]
+            };
+
+            myChart.setOption(option);
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        }
+
+        function displayAISuggestion(suggestion) {
+            const contentDiv = document.getElementById('suggestionContent');
+            const signalDiv = document.getElementById('tradingSignal');
+
+            // 显示建议内容
+            contentDiv.innerHTML = suggestion.analysis || '暂无分析';
+
+            // 显示交易信号
+            if (suggestion.signal) {
+                signalDiv.className = 'trading-signal';
+
+                if (suggestion.signal === '买入') {
+                    signalDiv.classList.add('signal-buy');
+                    signalDiv.innerHTML = '🟢 建议买入<br><small>' + (suggestion.reason || '') + '</small>';
+                } else if (suggestion.signal === '卖出') {
+                    signalDiv.classList.add('signal-sell');
+                    signalDiv.innerHTML = '🔴 建议卖出<br><small>' + (suggestion.reason || '') + '</small>';
+                } else {
+                    signalDiv.classList.add('signal-hold');
+                    signalDiv.innerHTML = '🟡 建议持有观望<br><small>' + (suggestion.reason || '') + '</small>';
+                }
+            }
+
+            // 显示详细建议
+            if (suggestion.suggestions && suggestion.suggestions.length > 0) {
+                contentDiv.innerHTML += '<br><br><strong>操作建议:</strong><ul>';
+                suggestion.suggestions.forEach(s => {
+                    contentDiv.innerHTML += `<li>${s}</li>`;
+                });
+                contentDiv.innerHTML += '</ul>';
+            }
+
+            // 显示风险提示
+            if (suggestion.risk_warning) {
+                contentDiv.innerHTML += `<br><br><strong>⚠️ 风险提示:</strong> ${suggestion.risk_warning}`;
+            }
+        }
+    </script>
+    <script src="/static/auth.js"></script>
+</body>
+</html>
