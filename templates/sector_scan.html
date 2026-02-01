@@ -509,6 +509,7 @@
     <script>
         let currentSectors = [];
         let currentStocks = [];
+        let currentSectorStocks = [];  // 当前板块的股票列表
         let currentPage = 1;
         let pageSize = 20;
 
@@ -636,10 +637,12 @@
                 if (sectorStocks.length === 0) {
                     stocksTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">该板块暂无符合条件的股票</td></tr>';
                     pagination.innerHTML = '';
+                    currentSectorStocks = [];
                     return;
                 }
 
-                currentStocks = sectorStocks;
+                // 保存当前板块的股票，不覆盖全局的currentStocks
+                currentSectorStocks = sectorStocks;
                 currentPage = 1;
 
                 displayStocksPage();
@@ -654,11 +657,14 @@
             const stocksTableBody = document.getElementById('stocksTableBody');
             const pagination = document.getElementById('pagination');
 
+            // 使用当前板块的股票列表
+            const stocks = currentSectorStocks;
+
             // 计算分页
             const startIndex = (currentPage - 1) * pageSize;
             const endIndex = startIndex + pageSize;
-            const pageStocks = currentStocks.slice(startIndex, endIndex);
-            const totalPages = Math.ceil(currentStocks.length / pageSize);
+            const pageStocks = stocks.slice(startIndex, endIndex);
+            const totalPages = Math.ceil(stocks.length / pageSize);
 
             // 填充表格
             stocksTableBody.innerHTML = pageStocks.map(stock => `
@@ -690,7 +696,7 @@
 
         // 切换页面
         function changePage(direction) {
-            const totalPages = Math.ceil(currentStocks.length / pageSize);
+            const totalPages = Math.ceil(currentSectorStocks.length / pageSize);
 
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
@@ -706,6 +712,7 @@
             document.getElementById('sectorsView').style.display = 'block';
             document.getElementById('sectorDetailView').style.display = 'none';
             currentPage = 1;
+            currentSectorStocks = [];  // 清空当前板块股票
         }
 
         // 显示股票详情
