@@ -4,12 +4,16 @@
 使用Flask提供Web界面，每次刷新都重新获取真实数据
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from functools import wraps
 import asyncio
 import sys
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+import base64
+import hashlib
+import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -24,25 +28,241 @@ from src.monitors.index_collector import IndexCollector
 from analyze import detect_pattern_type
 
 app = Flask(__name__)
+app.secret_key = 'zhipu-ai-stock-analysis-secret-key-2024'  # 用于session加密
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Session有效期7天
+
+# Mock用户数据库（内存存储）
+users_db = {
+    'admin': '123456'  # 默认管理员账号
+}
+
+
+def generate_token(username):
+    """生成加密token"""
+    # 使用用户名和时间戳生成token
+    data = f"{username}:{datetime.now().isoformat()}"
+    # 使用SHA256哈希
+    hashed = hashlib.sha256(data.encode()).hexdigest()
+    # Base64编码
+    token = base64.b64encode(f"{username}:{hashed}".encode()).decode()
+    return token
+
+
+def verify_token(token):
+    """验证token"""
+    try:
+        decoded = base64.b64decode(token.encode()).decode()
+        username, _ = decoded.split(':')
+        return username in users_db
+    except:
+        return False
+
+
+def login_required(f):
+    """登录验证装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 检查session
+        if 'username' in session:
+            return f(*args, **kwargs)
+
+        # 检查header中的token
+        token = request.headers.get('Authorization')
+        if token and token.startswith('Bearer '):
+            token = token[7:]  # 移除 'Bearer ' 前缀
+            if verify_token(token):
+                return f(*args, **kwargs)
+
+        # 未登录，返回JSON错误或重定向
+        if request.path.startswith('/api/'):
+            return jsonify({'success': False, 'message': '请先登录', 'redirect': '/login'}), 401
+        else:
+            return redirect(url_for('login'))
+    return decorated_function
+
 
 # 获取配置
 API_KEY = os.getenv("ZHIPU_API_KEY")
 MODEL = os.getenv("ZHIPU_MODEL", "glm-4-plus")
 
 
+@app.before_request
+def check_authentication():
+    """在每个请求前检查登录状态"""
+    # 排除登录、注册页面和静态文件
+    if request.path in ['/login', '/register', '/api/login', '/api/register', '/logout']:
+        return None
+
+    # 排除静态文件
+    if request.path.startswith('/static'):
+        return None
+
+    # 对于API请求，检查session或token
+    if request.path.startswith('/api/'):
+        if 'username' not in session:
+            token = request.headers.get('Authorization', '')
+            if not token or not token.startswith('Bearer ') or not verify_token(token[7:]):
+                return jsonify({'success': False, 'message': '请先登录', 'redirect': '/login'}), 401
+        return None
+
+    # 对于页面请求，检查session
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    return None
+
+
 @app.route('/')
+@login_required
 def index():
     """主页"""
     return render_template('index.html')
 
 
 @app.route('/batch-quick')
+@login_required
 def batch_quick():
     """批量快速分析页面"""
     return render_template('batch_quick.html')
 
 
+@app.route('/login')
+def login():
+    """登录页面"""
+    # 如果已经登录，重定向到首页
+    if 'username' in session:
+        return redirect(url_for('index'))
+    return render_template('login.html')
+
+
+@app.route('/register')
+def register():
+    """注册页面"""
+    # 如果已经登录，重定向到首页
+    if 'username' in session:
+        return redirect(url_for('index'))
+    return render_template('register.html')
+
+
+@app.route('/logout')
+def logout():
+    """登出"""
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    """登录API"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+
+        # 验证输入
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'message': '用户名和密码不能为空'
+            })
+
+        # 验证用户
+        if username in users_db and users_db[username] == password:
+            session['username'] = username
+            session.permanent = True  # 保持session
+            # 生成token用于本地存储
+            token = generate_token(username)
+            return jsonify({
+                'success': True,
+                'message': '登录成功',
+                'redirect': '/',
+                'token': token,
+                'username': username
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '用户名或密码错误'
+            })
+    except Exception as e:
+        print(f"登录错误: {e}")
+        return jsonify({
+            'success': False,
+            'message': '登录失败，请稍后重试'
+        })
+
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    """注册API"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+
+        # 验证输入
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'message': '用户名和密码不能为空'
+            })
+
+        # 验证用户名长度
+        if len(username) < 3 or len(username) > 20:
+            return jsonify({
+                'success': False,
+                'message': '用户名长度必须在3-20个字符之间'
+            })
+
+        # 验证密码长度
+        if len(password) < 6:
+            return jsonify({
+                'success': False,
+                'message': '密码至少需要6个字符'
+            })
+
+        # 检查用户是否已存在
+        if username in users_db:
+            return jsonify({
+                'success': False,
+                'message': '用户名已存在'
+            })
+
+        # 注册新用户
+        users_db[username] = password
+
+        print(f"新用户注册: {username}")
+
+        return jsonify({
+            'success': True,
+            'message': '注册成功'
+        })
+    except Exception as e:
+        print(f"注册错误: {e}")
+        return jsonify({
+            'success': False,
+            'message': '注册失败，请稍后重试'
+        })
+
+
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    """检查登录状态"""
+    if 'username' in session:
+        return jsonify({
+            'authenticated': True,
+            'username': session['username']
+        })
+    else:
+        return jsonify({
+            'authenticated': False
+        })
+
+
 @app.route('/sector-scan')
+@login_required
 def sector_scan():
     """板块扫描页面"""
     return render_template('sector_scan.html')
@@ -391,12 +611,14 @@ def is_speculative_stock(real_data: dict) -> tuple:
 
 
 @app.route('/daily-recommend')
+@login_required
 def daily_recommend():
     """每日推荐页面"""
     return render_template('daily_recommend.html')
 
 
 @app.route('/finance-news')
+@login_required
 def finance_news():
     """财经新闻页面"""
     return render_template('finance_news.html')
