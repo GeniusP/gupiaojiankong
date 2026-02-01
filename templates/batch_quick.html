@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实时监控 - 智谱AI股票分析系统</title>
     <style>
+        html, body {
+            margin: 0 !important;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,7 +19,6 @@
             font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
         }
 
         .container {
@@ -626,9 +629,216 @@
                 max-width: 100%;
             }
         }
+
+        /* 顶部导航栏样式 */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 0;
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+        }
+
+        .navbar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .navbar-logo .logo-icon {
+            font-size: 24px;
+        }
+
+        .navbar-logo .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .navbar-item {
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .navbar-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .navbar-item.active {
+            background: rgba(255, 255, 255, 0.25);
+            font-weight: 600;
+        }
+
+        .navbar-item .icon {
+            margin-right: 5px;
+        }
+
+        /* 调整body padding以适应固定导航栏 */
+        body {
+            padding-top: 60px;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-container {
+                padding: 10px 15px;
+            }
+
+            .navbar-logo .logo-text {
+                font-size: 16px;
+            }
+
+            .navbar-menu {
+                gap: 5px;
+            }
+
+            .navbar-item {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .navbar-item .icon {
+                margin-right: 3px;
+            }
+        }
+
+        /* 贵金属滚动banner样式 */
+        .metals-banner {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .metals-banner-container {
+            display: flex;
+            align-items: center;
+            animation: scrollLeft 20s linear infinite;
+            white-space: nowrap;
+        }
+
+        .metals-banner-container:hover {
+            animation-play-state: paused;
+        }
+
+        @keyframes scrollLeft {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        .metal-item {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 30px;
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+
+        .metal-icon {
+            font-size: 1.5em;
+            margin-right: 8px;
+        }
+
+        .metal-name {
+            color: #8B4513;
+            margin-right: 8px;
+        }
+
+        .metal-price {
+            color: #333;
+        }
+
+        .metal-separator {
+            color: rgba(139, 69, 19, 0.3);
+            margin: 0 10px;
+        }
+
+        /* 贵金属全宽banner容器 */
+        .metals-banner-full {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            box-shadow: 0 2px 10px rgba(255, 215, 0, 0.2);
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 998;
+        }
+
+        .metals-banner-full .container {
+            padding: 0;
+            max-width: 100%;
+        }
+
+        .metals-banner-full .metals-banner {
+            margin: 0;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 12px 20px;
+        }
     </style>
 </head>
 <body>
+    <!-- 顶部导航栏 -->
+    <nav class="top-navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-logo">
+                <span class="logo-icon">📊</span>
+                <span class="logo-text">智谱AI股票分析</span>
+            </a>
+            <div class="navbar-menu">
+                <a href="/" class="navbar-item">
+                    <span class="icon">🏠</span>首页
+                </a>
+                <a href="/sector-scan" class="navbar-item">
+                    <span class="icon">🔍</span>板块扫描
+                </a>
+                <a href="/daily-recommend" class="navbar-item">
+                    <span class="icon">🌟</span>每日推荐
+                </a>
+                <a href="/finance-news" class="navbar-item">
+                    <span class="icon">📰</span>财经新闻
+                </a>
+                <a href="/batch-quick" class="navbar-item active">
+                    <span class="icon">📈</span>实时监控
+                </a>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
         <div class="header" style="display: flex; justify-content: space-between; align-items: center; gap: 25px;">
             <div style="flex: 1;">
@@ -644,25 +854,6 @@
                         🔄 立即刷新
                     </button>
                 </div>
-            </div>
-
-            <!-- 贵金属价格显示 -->
-            <div id="metals-price-widget" style="background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px; min-width: 220px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
-                <div style="display: flex; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
-                    <span style="font-size: 1em; margin-right: 5px;">🥇</span>
-                    <strong style="color: #333333; font-size: 0.85em;">贵金属实时价格</strong>
-                </div>
-                <div id="metals-price-content" style="font-size: 0.8em;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-                        <span style="color: #666666;">💰 黄金</span>
-                        <span id="gold-prices" style="font-weight: 500; color: #333;">加载中...</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #666666;">💎 白银</span>
-                        <span id="silver-prices" style="font-weight: 500; color: #333;">加载中...</span>
-                    </div>
-                </div>
-                <div id="metals-update-time" style="margin-top: 8px; font-size: 0.65em; color: #999999; text-align: right;"></div>
             </div>
         </div>
 
@@ -737,35 +928,81 @@
 
                 if (result.success && result.data) {
                     const data = result.data;
+                    const bannerContent = document.getElementById('metalsBanner');
 
-                    // 更新黄金价格
+                    // 构建滚动banner内容
+                    let metalsHTML = '';
+
                     if (data.gold_usd !== null && data.gold_cny !== null) {
-                        document.getElementById('gold-prices').innerHTML =
-                            `<span style="color: #1976d2;">$${data.gold_usd}/oz</span>` +
-                            ` <span style="color: #757575;">|</span> ` +
-                            `<span style="color: #d32f2f;">¥${data.gold_cny}/g</span>`;
-                    } else {
-                        document.getElementById('gold-prices').textContent = '暂无数据';
+                        metalsHTML += `
+                            <div class="metal-item">
+                                <span class="metal-icon">🥇</span>
+                                <span class="metal-name">黄金</span>
+                                <span class="metal-price">
+                                    <span style="color: #1976d2;">$${data.gold_usd}/oz</span>
+                                    <span style="color: #757575;">|</span>
+                                    <span style="color: #d32f2f;">¥${data.gold_cny}/g</span>
+                                </span>
+                            </div>
+                            <span class="metal-separator">|</span>
+                        `;
                     }
 
-                    // 更新白银价格
                     if (data.silver_usd !== null && data.silver_cny !== null) {
-                        document.getElementById('silver-prices').innerHTML =
-                            `<span style="color: #1976d2;">$${data.silver_usd}/oz</span>` +
-                            ` <span style="color: #757575;">|</span> ` +
-                            `<span style="color: #d32f2f;">¥${data.silver_cny}/g</span>`;
-                    } else {
-                        document.getElementById('silver-prices').textContent = '暂无数据';
+                        metalsHTML += `
+                            <div class="metal-item">
+                                <span class="metal-icon">🥈</span>
+                                <span class="metal-name">白银</span>
+                                <span class="metal-price">
+                                    <span style="color: #1976d2;">$${data.silver_usd}/oz</span>
+                                    <span style="color: #757575;">|</span>
+                                    <span style="color: #d32f2f;">¥${data.silver_cny}/g</span>
+                                </span>
+                            </div>
+                            <span class="metal-separator">|</span>
+                        `;
                     }
 
-                    // 更新时间
-                    if (data.update_time) {
-                        document.getElementById('metals-update-time').textContent =
-                            '更新: ' + data.update_time;
+                    if (data.platinum_usd !== null && data.platinum_cny !== null) {
+                        metalsHTML += `
+                            <div class="metal-item">
+                                <span class="metal-icon">⚪</span>
+                                <span class="metal-name">铂金</span>
+                                <span class="metal-price">
+                                    <span style="color: #1976d2;">$${data.platinum_usd}/oz</span>
+                                    <span style="color: #757575;">|</span>
+                                    <span style="color: #d32f2f;">¥${data.platinum_cny}/g</span>
+                                </span>
+                            </div>
+                            <span class="metal-separator">|</span>
+                        `;
                     }
-                } else {
-                    document.getElementById('gold-prices').textContent = '加载失败';
-                    document.getElementById('silver-prices').textContent = '加载失败';
+
+                    if (data.palladium_usd !== null && data.palladium_cny !== null) {
+                        metalsHTML += `
+                            <div class="metal-item">
+                                <span class="metal-icon">🔘</span>
+                                <span class="metal-name">钯金</span>
+                                <span class="metal-price">
+                                    <span style="color: #1976d2;">$${data.palladium_usd}/oz</span>
+                                    <span style="color: #757575;">|</span>
+                                    <span style="color: #d32f2f;">¥${data.palladium_cny}/g</span>
+                                </span>
+                            </div>
+                        `;
+                    }
+
+                    // 添加更新时间
+                    if (data.update_time) {
+                        metalsHTML += `
+                            <div class="metal-item">
+                                <span style="color: #999; font-size: 0.85em;">更新: ${data.update_time}</span>
+                            </div>
+                        `;
+                    }
+
+                    // 复制一份内容实现无缝滚动
+                    bannerContent.innerHTML = metalsHTML + metalsHTML;
                 }
             } catch (error) {
                 console.error('获取贵金属价格失败:', error);
