@@ -94,6 +94,50 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            color: #666;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .filter-btn:hover {
+            border-color: #667eea;
+            background: #f5f5f5;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .filter-btn .badge {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        .filter-btn.active .badge {
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .refresh-btn {
@@ -194,6 +238,23 @@
             font-size: 12px;
             font-weight: 600;
             color: white;
+        }
+
+        .warning-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+        }
+
+        .warning-badge.speculative {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+
+        .warning-badge.retail {
+            background: linear-gradient(135deg, #ffa502 0%, #ff7f50 100%);
         }
 
         .stock-info {
@@ -343,7 +404,17 @@
 
         <div class="main-content">
             <div class="section-title">
-                <span>🌟 今日推荐</span>
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <span>🌟 今日推荐</span>
+                    <div class="filter-buttons">
+                        <button class="filter-btn" id="filterSpeculative" onclick="toggleFilter('speculative')">
+                            ⚠️ 排除游资票 <span class="badge" id="speculativeCount">0</span>
+                        </button>
+                        <button class="filter-btn" id="filterRetail" onclick="toggleFilter('retail')">
+                            👥 排除散户最爱 <span class="badge" id="retailCount">0</span>
+                        </button>
+                    </div>
+                </div>
                 <span id="updateTime" style="font-size: 14px; color: #999; font-weight: normal;"></span>
             </div>
 
@@ -366,6 +437,8 @@
 
     <script>
         let recommendedStocks = [];
+        let filterSpeculativeActive = false;
+        let filterRetailActive = false;
 
         // 页面加载时自动获取推荐
         window.addEventListener('DOMContentLoaded', function() {
@@ -400,7 +473,8 @@
 
                 if (result.success && result.stocks && result.stocks.length > 0) {
                     recommendedStocks = result.stocks;
-                    displayRecommendations(result.stocks);
+                    updateFilterCounts();
+                    applyFiltersAndDisplay();
 
                     if (result.update_time) {
                         updateTime.textContent = '更新: ' + result.update_time;
@@ -428,6 +502,41 @@
             }
         }
 
+        // 切换筛选器
+        function toggleFilter(filterType) {
+            if (filterType === 'speculative') {
+                filterSpeculativeActive = !filterSpeculativeActive;
+                document.getElementById('filterSpeculative').classList.toggle('active', filterSpeculativeActive);
+            } else if (filterType === 'retail') {
+                filterRetailActive = !filterRetailActive;
+                document.getElementById('filterRetail').classList.toggle('active', filterRetailActive);
+            }
+            applyFiltersAndDisplay();
+        }
+
+        // 更新筛选器计数
+        function updateFilterCounts() {
+            const speculativeCount = recommendedStocks.filter(s => s.is_speculative).length;
+            const retailCount = recommendedStocks.filter(s => s.is_retail_favorite).length;
+            document.getElementById('speculativeCount').textContent = speculativeCount;
+            document.getElementById('retailCount').textContent = retailCount;
+        }
+
+        // 应用筛选并显示
+        function applyFiltersAndDisplay() {
+            let filteredStocks = recommendedStocks;
+
+            if (filterSpeculativeActive) {
+                filteredStocks = filteredStocks.filter(s => !s.is_speculative);
+            }
+
+            if (filterRetailActive) {
+                filteredStocks = filteredStocks.filter(s => !s.is_retail_favorite);
+            }
+
+            displayRecommendations(filteredStocks);
+        }
+
         // 显示推荐股票
         function displayRecommendations(stocks) {
             const grid = document.getElementById('recommendationsGrid');
@@ -445,6 +554,15 @@
                 const changeClass = stock.change_percent >= 0 ? 'positive' : 'negative';
                 const recommendation = getRecommendationText(stock);
 
+                // 生成警告标签
+                let warningBadges = '';
+                if (stock.is_speculative) {
+                    warningBadges += `<span class="warning-badge speculative" title="游资票: ${stock.speculative_reason}">⚠️ 游资票</span>`;
+                }
+                if (stock.is_retail_favorite) {
+                    warningBadges += `<span class="warning-badge retail" title="散户最爱: ${stock.retail_reason}">👥 散户最爱</span>`;
+                }
+
                 return `
                     <div class="stock-card" onclick="showDetail('${stock.stock_code}')">
                         <div class="stock-header">
@@ -452,10 +570,18 @@
                                 <span class="stock-code">${stock.stock_code}</span>
                                 <span class="stock-name">${stock.stock_name}</span>
                             </div>
-                            <span class="pattern-badge" style="background: ${patternColor};">
-                                ${stock.pattern_type}
-                            </span>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <span class="pattern-badge" style="background: ${patternColor};">
+                                    ${stock.pattern_type}
+                                </span>
+                            </div>
                         </div>
+
+                        ${warningBadges ? `
+                        <div class="warning-badges" style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            ${warningBadges}
+                        </div>
+                        ` : ''}
 
                         <div class="stock-info">
                             <div class="info-item">
