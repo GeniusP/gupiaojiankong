@@ -489,6 +489,28 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .total-amount {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .total-amount-label {
+            opacity: 0.9;
+        }
+
+        .total-amount-value {
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #FFD700;
         }
 
         .index-refresh-time {
@@ -499,8 +521,31 @@
 
         .index-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(140px, 1fr);
             gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        /* 自定义滚动条样式 */
+        .index-grid::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .index-grid::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .index-grid::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .index-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .index-item {
@@ -552,15 +597,9 @@
             color: #999;
         }
 
-        @media (max-width: 1200px) {
-            .index-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
         @media (max-width: 768px) {
             .index-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-auto-columns: minmax(120px, 1fr);
             }
         }
     </style>
@@ -582,7 +621,13 @@
         <div class="index-banner">
             <div class="index-title">
                 <span>📊 主要股票指数</span>
-                <span class="index-refresh-time" id="indexRefreshTime">加载中...</span>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div class="total-amount" id="totalAmount" style="display: none;">
+                        <span class="total-amount-label">💰 总成交额</span>
+                        <span class="total-amount-value">---</span>
+                    </div>
+                    <span class="index-refresh-time" id="indexRefreshTime">加载中...</span>
+                </div>
             </div>
             <div class="index-grid" id="indexGrid">
                 <div class="index-item">
@@ -612,6 +657,16 @@
                 </div>
                 <div class="index-item">
                     <div class="index-name">中证1000</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">科创100</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">北证50</div>
                     <div class="index-value">---</div>
                     <div class="index-change">---</div>
                 </div>
@@ -1477,6 +1532,14 @@
                     // 更新刷新时间
                     if (result.data.update_time) {
                         document.getElementById('indexRefreshTime').textContent = '更新: ' + result.data.update_time;
+                    }
+
+                    // 显示总成交额
+                    if (result.data.total_amount !== undefined) {
+                        const totalAmountDiv = document.getElementById('totalAmount');
+                        const totalAmountValue = totalAmountDiv.querySelector('.total-amount-value');
+                        totalAmountValue.textContent = result.data.total_amount + ' 亿';
+                        totalAmountDiv.style.display = 'flex';
                     }
 
                     // 构建指数卡片

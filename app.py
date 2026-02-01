@@ -48,6 +48,176 @@ def sector_scan():
     return render_template('sector_scan.html')
 
 
+def is_retail_favorite_stock(real_data: dict) -> tuple:
+    """
+    检测是否为散户最爱买的股票
+
+    散户最爱买的股票特征：
+    1. 低价股（<10元）- 散户觉得便宜、好买、能翻倍
+    2. 小盘股（<50亿市值）- 散户觉得成长空间大
+    3. ST/*ST股票 - 散户赌重组、借壳
+    4. 概念股名字（科技、智能、生物、新能源等）- 散户追热点
+    5. 高换手+高振幅组合 - 散户喜欢追涨杀跌
+    6. 曾经大涨过（前高远高于当前价）- 散户抄底心理
+
+    Args:
+        real_data: 股票实时数据字典
+
+    Returns:
+        (is_retail_favorite: bool, reason: str, retail_score: int)
+    """
+    try:
+        current_price = real_data.get('实时价', 0)
+        stock_name = real_data.get('股票名称', '')
+        open_price = real_data.get('开盘价', 0)
+        high_price = real_data.get('最高价', 0)
+        low_price = real_data.get('最低价', 0)
+        prev_close = real_data.get('昨收', 0)
+        turnover_rate = real_data.get('换手率', 0)
+        market_cap = real_data.get('总市值', 0)
+
+        if current_price <= 0 or not stock_name:
+            return False, "", 0
+
+        retail_factors = []
+        retail_score = 0
+
+        # ========== 1. 低价股判断（散户最爱）==========
+
+        if current_price < 5:  # 超低价股
+            retail_score += 30
+            retail_factors.append(f"💸 超低价股({current_price:.2f}元),散户最爱")
+        elif current_price < 10:  # 低价股
+            retail_score += 20
+            retail_factors.append(f"💸 低价股({current_price:.2f}元)")
+        elif current_price < 20:  # 中低价
+            retail_score += 10
+            retail_factors.append(f"价格适中({current_price:.2f}元)")
+        elif current_price >= 50:  # 高价股，散户不太买
+            retail_score -= 15
+            retail_factors.append(f"✓ 高价股({current_price:.2f}元),机构偏好")
+
+        # ========== 2. 小盘股判断（散户觉得好炒作）==========
+
+        if market_cap and market_cap > 0:
+            market_cap_yi = market_cap / 100000000
+
+            if market_cap_yi < 30:  # 超小盘
+                retail_score += 25
+                retail_factors.append(f"🎯 超小盘(市值{market_cap_yi:.0f}亿),易炒作")
+            elif market_cap_yi < 50:  # 小盘
+                retail_score += 15
+                retail_factors.append(f"🎯 小盘股(市值{market_cap_yi:.0f}亿)")
+            elif market_cap_yi < 100:  # 中盘
+                retail_score += 5
+            elif market_cap_yi >= 200:  # 大盘股，散户不太关注
+                retail_score -= 10
+                retail_factors.append(f"✓ 大盘股(市值{market_cap_yi:.0f}亿)")
+
+        # ========== 3. ST/*ST股票判断（散户赌重组）==========
+
+        if 'ST' in stock_name or '*ST' in stock_name or '退' in stock_name:
+            retail_score += 40
+            retail_factors.append(f"⚠️ 特殊处理股票({stock_name}),散户赌重组")
+
+        # ========== 4. 概念股名字判断（散户追热点）==========
+
+        # 散户最爱的概念关键词
+        concept_keywords = {
+            '科技': 15, '智能': 15, 'AI': 15, '人工智能': 15,
+            '生物': 12, '医疗': 12, '医药': 12, '健康': 12,
+            '新能源': 12, '锂电': 12, '光伏': 12, '储能': 12,
+            '芯片': 12, '半导体': 12, '集成电路': 12,
+            '软件': 10, '信息': 10, '网络': 10, '数据': 10,
+            '材料': 8, '化工': 8, '环保': 8,
+            '文化': 8, '传媒': 8, '教育': 8
+        }
+
+        matched_concepts = []
+        for keyword, score in concept_keywords.items():
+            if keyword in stock_name:
+                retail_score += score
+                matched_concepts.append(keyword)
+
+        if matched_concepts:
+            retail_factors.append(f"🔥 热门概念({','.join(matched_concepts)})")
+
+        # ========== 5. 高换手+高振幅组合（散户追涨杀跌）==========
+
+        is_high_turnover = turnover_rate and turnover_rate >= 10
+        is_high_amplitude = False
+        if high_price > 0 and low_price > 0 and prev_close > 0:
+            amplitude = ((high_price - low_price) / low_price * 100)
+            is_high_amplitude = amplitude >= 10
+            if amplitude >= 15:
+                retail_score += 15
+                retail_factors.append(f"🎢 巨幅波动({amplitude:.2f}%)")
+
+        # 散户最爱：高换手+高振幅
+        if is_high_turnover and is_high_amplitude:
+            retail_score += 20
+            retail_factors.append(f"🎲 高换手+高振幅,散户追涨杀跌")
+
+        # ========== 6. 涨停/跌停判断（散户最关注）==========
+
+        if prev_close > 0:
+            change_percent = ((current_price - prev_close) / prev_close * 100)
+
+            if change_percent >= 9.9:  # 涨停
+                retail_score += 25
+                retail_factors.append(f"🚀 涨停({change_percent:+.2f}%)")
+            elif change_percent <= -9.9:  # 跌停
+                retail_score += 20
+                retail_factors.append(f"💥 跌停({change_percent:+.2f}%),散户抄底")
+            elif change_percent >= 7:  # 大涨
+                retail_score += 15
+                retail_factors.append(f"大涨({change_percent:+.2f}%)")
+            elif change_percent <= -7:  # 大跌
+                retail_score += 15
+                retail_factors.append(f"大跌({change_percent:+.2f}%),散户抄底")
+
+        # ========== 7. 成交量异常放大（散户跟风）==========
+
+        if turnover_rate and turnover_rate > 0:
+            if turnover_rate >= 20:  # 超高换手
+                retail_score += 20
+                retail_factors.append(f"📊 超高换手({turnover_rate:.2f}%),散户跟风")
+            elif turnover_rate >= 15:  # 高换手
+                retail_score += 15
+                retail_factors.append(f"高换手({turnover_rate:.2f}%)")
+
+        # ========== 8. 冲高回落（散户追高被套）==========
+
+        if high_price > 0 and current_price > 0 and high_price > current_price:
+            pullback_from_high = ((high_price - current_price) / high_price * 100)
+            if pullback_from_high > 5:
+                retail_score += 10
+                retail_factors.append(f"⛰️ 冲高回落({pullback_from_high:.2f}%)")
+
+        # ========== 综合判断 ==========
+
+        # 低价 + 小盘 + 高换手 = 散户最爱组合
+        is_very_cheap = current_price < 10
+        is_very_small_cap = market_cap and (market_cap / 100000000) < 50
+        is_very_high_turnover = turnover_rate and turnover_rate >= 10
+
+        if is_very_cheap and is_very_small_cap and is_very_high_turnover:
+            retail_score += 15
+            if not any("散户最爱" in f for f in retail_factors):
+                retail_factors.insert(0, "🎯 散户最爱组合(低价+小盘+高换手)")
+
+        # 风险分数 > 40 判定为散户最爱
+        is_retail_favorite = retail_score > 40
+
+        reason = "、".join(retail_factors) if retail_factors else ""
+
+        return is_retail_favorite, reason, max(0, retail_score)
+
+    except Exception as e:
+        print(f"检测散户最爱股票时出错: {e}")
+        return False, "", 0
+
+
 def is_speculative_stock(real_data: dict) -> tuple:
     """
     检测是否为游资炒作的股票（游资票）
@@ -226,6 +396,34 @@ def daily_recommend():
     return render_template('daily_recommend.html')
 
 
+@app.route('/finance-news')
+def finance_news():
+    """财经新闻页面"""
+    return render_template('finance_news.html')
+
+
+@app.route('/api/finance-news', methods=['GET'])
+def finance_news_api():
+    """财经新闻API"""
+    try:
+        from src.monitors.finance_news_collector import FinanceNewsCollector
+
+        collector = FinanceNewsCollector()
+        result = collector.get_all_news(limit=30)
+
+        return jsonify({
+            'success': True,
+            'data': result['data'],
+            'update_time': result['update_time']
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
 @app.route('/api/sector-scan', methods=['POST'])
 def sector_scan_api():
     """板块扫描API - 扫描热门板块并筛选图形"""
@@ -333,13 +531,11 @@ def daily_recommend_api():
                 prev_close = real_data.get('昨收', real_data.get('开盘价', 0))
                 change_percent = ((real_data['实时价'] - prev_close) / prev_close * 100) if prev_close > 0 else 0
 
-                # 检测是否为游资票
+                # 检测是否为游资票（标记但不过滤）
                 is_speculative, speculative_reason, risk_score = is_speculative_stock(real_data)
 
-                # 如果是游资票，跳过该股票
-                if is_speculative:
-                    print(f"⚠️  排除游资票: {real_data.get('股票代码')} {real_data.get('股票名称')} - 风险分:{risk_score} - 原因: {speculative_reason}")
-                    continue
+                # 检测是否为散户最爱买的股票（标记但不过滤）
+                is_retail_favorite, retail_reason, retail_score = is_retail_favorite_stock(real_data)
 
                 stock_info = {
                     'stock_code': real_data.get('股票代码'),
@@ -358,7 +554,14 @@ def daily_recommend_api():
                         'type': pattern_type,
                         'confidence': confidence,
                         'description': reason
-                    }
+                    },
+                    # 添加标记字段
+                    'is_speculative': is_speculative,
+                    'speculative_reason': speculative_reason,
+                    'speculative_risk_score': risk_score,
+                    'is_retail_favorite': is_retail_favorite,
+                    'retail_reason': retail_reason,
+                    'retail_score': retail_score
                 }
 
                 recommended_stocks.append(stock_info)
@@ -599,6 +802,21 @@ def index_data_api():
         data = collector.get_all_indices()
 
         if data and data['indices']:
+            # 计算沪深京总成交额（上证+深证+北证）
+            total_amount_wan = 0
+            for index in data['indices']:
+                # 计算上证指数、深证成指、北证50
+                if index.get('amount') and not index.get('error'):
+                    code = index.get('code', '')
+                    # code 格式可能是 'sh000001' 或 '000001'
+                    if code in ['sh000001', 'sz399001', 'bj899050', '000001', '399001', '899050']:
+                        total_amount_wan += index['amount']
+
+            # 转换为亿元（万元 / 10000 = 亿元）
+            total_amount_yi = total_amount_wan / 10000
+
+            data['total_amount'] = round(total_amount_yi, 2)
+
             return jsonify({
                 'success': True,
                 'data': data

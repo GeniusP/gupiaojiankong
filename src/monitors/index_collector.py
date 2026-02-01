@@ -24,8 +24,10 @@ class IndexCollector:
             'sz399001': {'name': '深证成指', 'code': '399001'},
             'sz399006': {'name': '创业板指', 'code': '399006'},
             'sh000688': {'name': '科创50', 'code': '000688'},
+            'sh000698': {'name': '科创100', 'code': '000698'},
             'sh000300': {'name': '沪深300', 'code': '000300'},
-            'sh000852': {'name': '中证1000', 'code': '000852'}
+            'sh000852': {'name': '中证1000', 'code': '000852'},
+            'bj899050': {'name': '北证50', 'code': '899050'}
         }
 
     def get_index_data(self, index_symbol: str) -> Optional[Dict]:
@@ -92,7 +94,7 @@ class IndexCollector:
                 'high': round(high, 2),
                 'low': round(low, 2),
                 'volume': volume,
-                'amount': round(amount / 10000, 2)  # 转换为万元
+                'amount': round(amount, 2)  # 腾讯API返回的amount单位已经是万元
             }
 
         except Exception as e:
