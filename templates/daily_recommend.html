@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日推荐股票 - 智谱AI股票分析系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header-left p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        .refresh-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .stock-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .stock-code {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stock-name {
+            font-size: 14px;
+            color: #666;
+            margin-left: 10px;
+        }
+
+        .pattern-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .stock-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .info-item {
+            background: rgba(255, 255, 255, 0.6);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 3px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .info-value.positive {
+            color: #e74c3c;
+        }
+
+        .info-value.negative {
+            color: #27ae60;
+        }
+
+        .recommendation {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .recommendation-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #999;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #f1f1f1;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: #e0e0e0;
+            transform: rotate(90deg);
+        }
+
+        @media (max-width: 768px) {
+            .stock-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header-controls {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>📈 每日推荐股票</h1>
+                <p>基于热门板块和AI图形分析，为您推荐值得关注的股票</p>
+            </div>
+            <div class="header-controls">
+                <a href="/" class="btn btn-secondary">🏠 返回主页</a>
+                <button class="btn btn-primary" onclick="loadRecommendations()">
+                    <span class="spinner" id="refreshSpinner"></span>
+                    🔄 刷新推荐
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="section-title">
+                <span>🌟 今日推荐</span>
+                <span id="updateTime" style="font-size: 14px; color: #999; font-weight: normal;"></span>
+            </div>
+
+            <div id="recommendationsGrid" class="stock-grid">
+                <div class="loading-overlay">
+                    <div class="loading-spinner"></div>
+                    <p>正在分析热门板块，寻找推荐股票...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        let recommendedStocks = [];
+
+        // 页面加载时自动获取推荐
+        window.addEventListener('DOMContentLoaded', function() {
+            loadRecommendations();
+        });
+
+        // 加载推荐股票
+        async function loadRecommendations() {
+            const grid = document.getElementById('recommendationsGrid');
+            const spinner = document.getElementById('refreshSpinner');
+            const updateTime = document.getElementById('updateTime');
+
+            spinner.style.display = 'inline-block';
+            grid.innerHTML = `
+                <div class="loading-overlay" style="grid-column: 1 / -1;">
+                    <div class="loading-spinner"></div>
+                    <p>正在分析热门板块，寻找推荐股票...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/daily-recommend', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        sector_count: 10,
+                        stocks_per_sector: 5
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.stocks && result.stocks.length > 0) {
+                    recommendedStocks = result.stocks;
+                    displayRecommendations(result.stocks);
+
+                    if (result.update_time) {
+                        updateTime.textContent = '更新: ' + result.update_time;
+                    }
+                } else {
+                    grid.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <div class="empty-icon">📭</div>
+                            <p>暂无推荐股票</p>
+                            <p style="font-size: 14px; margin-top: 10px;">请稍后再试</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('获取推荐股票失败:', error);
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-icon">⚠️</div>
+                        <p>加载失败</p>
+                        <p style="font-size: 14px; margin-top: 10px;">${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+
+        // 显示推荐股票
+        function displayRecommendations(stocks) {
+            const grid = document.getElementById('recommendationsGrid');
+
+            const patternColors = {
+                '强势上涨': 'linear-gradient(135deg, #27ae60 0%, #229954 100%)',
+                '开盘跳水': 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+                '破位下跌': 'linear-gradient(135deg, #f39c12 0%, #d35400 100%)',
+                '冲板回落': 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)',
+                '震荡整理': 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)'
+            };
+
+            grid.innerHTML = stocks.map((stock, index) => {
+                const patternColor = patternColors[stock.pattern_type] || patternColors['震荡整理'];
+                const changeClass = stock.change_percent >= 0 ? 'positive' : 'negative';
+                const recommendation = getRecommendationText(stock);
+
+                return `
+                    <div class="stock-card" onclick="showDetail('${stock.stock_code}')">
+                        <div class="stock-header">
+                            <div>
+                                <span class="stock-code">${stock.stock_code}</span>
+                                <span class="stock-name">${stock.stock_name}</span>
+                            </div>
+                            <span class="pattern-badge" style="background: ${patternColor};">
+                                ${stock.pattern_type}
+                            </span>
+                        </div>
+
+                        <div class="stock-info">
+                            <div class="info-item">
+                                <div class="info-label">所属板块</div>
+                                <div class="info-value">${stock.sector_name || '-'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">当前价格</div>
+                                <div class="info-value">¥${stock.current_price}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">涨跌幅</div>
+                                <div class="info-value ${changeClass}">
+                                    ${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent}%
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">成交量</div>
+                                <div class="info-value">${formatVolume(stock.volume)}</div>
+                            </div>
+                        </div>
+
+                        <div class="recommendation">
+                            <div class="recommendation-title">💡 买入建议</div>
+                            <div>${recommendation}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 计算买入价格范围
+        function calculateBuyRange(stock) {
+            const currentPrice = stock.current_price;
+            const highPrice = stock.high_price || currentPrice;
+            const lowPrice = stock.low_price || currentPrice;
+            const openPrice = stock.open_price || currentPrice;
+
+            let buyMin, buyMax, reason;
+
+            switch(stock.pattern_type) {
+                case '强势上涨':
+                    // 建议在回调到MA5或MA10附近买入，当前价-2%到-5%
+                    buyMin = (currentPrice * 0.95).toFixed(2);
+                    buyMax = (currentPrice * 0.98).toFixed(2);
+                    reason = '建议等待回调至均线支撑位买入';
+                    break;
+
+                case '开盘跳水':
+                    // 等待企稳，可以在当前价-3%到-5%分批买入
+                    buyMin = (currentPrice * 0.95).toFixed(2);
+                    buyMax = (currentPrice * 0.97).toFixed(2);
+                    reason = '等待企稳后可分批建仓，严格止损';
+                    break;
+
+                case '破位下跌':
+                    // 等待重新站稳，前期低点附近
+                    buyMin = (lowPrice * 0.98).toFixed(2);
+                    buyMax = (lowPrice * 1.02).toFixed(2);
+                    reason = '等待重新站稳支撑位后再考虑';
+                    break;
+
+                case '冲板回落':
+                    // 回调至重要支撑位，开盘价到最低价之间
+                    buyMin = (lowPrice * 0.99).toFixed(2);
+                    buyMax = (openPrice).toFixed(2);
+                    reason = '回调至支撑位可逢低介入';
+                    break;
+
+                case '震荡整理':
+                    // 箱体下沿附近，最低价到当前价-2%
+                    buyMin = (lowPrice).toFixed(2);
+                    buyMax = (currentPrice * 0.98).toFixed(2);
+                    reason = '箱体下沿可适量布局，设好止损';
+                    break;
+
+                default:
+                    buyMin = (currentPrice * 0.97).toFixed(2);
+                    buyMax = (currentPrice * 0.99).toFixed(2);
+                    reason = '建议逢低分批买入';
+            }
+
+            return {
+                min: parseFloat(buyMin),
+                max: parseFloat(buyMax),
+                reason: reason
+            };
+        }
+
+        // 获取推荐文字
+        function getRecommendationText(stock) {
+            const buyRange = calculateBuyRange(stock);
+
+            const patterns = {
+                '强势上涨': {
+                    action: '建议关注',
+                    reason: `股票呈现强势上涨形态，多空力量对比明显偏多。建议关注回调后的买入机会，注意控制仓位。`
+                },
+                '开盘跳水': {
+                    action: '谨慎观望',
+                    reason: `开盘出现跳水下跌，短期趋势偏弱。建议等待企稳信号，不急于抄底。`
+                },
+                '破位下跌': {
+                    action: '暂时回避',
+                    reason: `价格跌破关键支撑位，技术面转弱。建议暂时回避，等待重新站稳后再考虑。`
+                },
+                '冲板回落': {
+                    action: '等待回调',
+                    reason: `冲高回落显示上方压力较大，建议等待回调至支撑位后再考虑介入。`
+                },
+                '震荡整理': {
+                    action: '耐心等待',
+                    reason: `股价处于震荡整理阶段，建议等待方向明确后再操作，可设置好止损位。`
+                }
+            };
+
+            const rec = patterns[stock.pattern_type] || patterns['震荡整理'];
+            return `<strong>${rec.action}</strong> - ${rec.reason}<br><br>💰 <strong>建议买入价:</strong> ¥${buyRange.min} - ¥${buyRange.max}`;
+        }
+
+        // 格式化成交量
+        function formatVolume(volume) {
+            if (!volume) return '-';
+            if (volume >= 100000000) {
+                return (volume / 100000000).toFixed(2) + '亿';
+            } else if (volume >= 10000) {
+                return (volume / 10000).toFixed(2) + '万';
+            }
+            return volume.toString();
+        }
+
+        // 显示详情
+        async function showDetail(stockCode) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+
+            modal.classList.add('active');
+            modalBody.innerHTML = '<div class="loading-spinner"></div><p style="text-align: center; padding: 20px;">加载中...</p>';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({stock_code: stockCode})
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const stock = result.data;
+                    const buyRange = calculateBuyRange(stock);
+
+                    modalBody.innerHTML = `
+                        <h2 style="margin-bottom: 20px; color: #333;">
+                            ${stock.stock_code} - ${stock.stock_name}
+                        </h2>
+
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; color: white;">
+                            <h4 style="margin-bottom: 15px;">💰 建议买入价格范围</h4>
+                            <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                                <div>
+                                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">买入区间下限</div>
+                                    <div style="font-size: 28px; font-weight: 700;">¥${buyRange.min}</div>
+                                </div>
+                                <div style="font-size: 24px;">~</div>
+                                <div>
+                                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">买入区间上限</div>
+                                    <div style="font-size: 28px; font-weight: 700;">¥${buyRange.max}</div>
+                                </div>
+                                <div style="flex: 1; min-width: 200px;">
+                                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">策略说明</div>
+                                    <div style="font-size: 14px;">${buyRange.reason}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f5f7fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin-bottom: 15px; color: #667eea;">📊 基本信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                                <div>
+                                    <div style="font-size: 12px; color: #999;">当前价格</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #333;">¥${stock.current_price}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 12px; color: #999;">涨跌幅</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: ${stock.change_percent >= 0 ? '#e74c3c' : '#27ae60'};">
+                                        ${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent}%
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 12px; color: #999;">成交量</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #333;">${formatVolume(stock.volume)}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f5f7fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin-bottom: 15px; color: #667eea;">🎯 图形分析</h4>
+                            <p style="line-height: 1.8; color: #333;">
+                                <strong>形态类型：</strong>${stock.pattern_detection?.type || stock.pattern_type || '未知'}<br>
+                                <strong>分析说明：</strong>${stock.pattern_detection?.reason || stock.pattern_detection?.description || '暂无分析'}
+                            </p>
+                        </div>
+
+                        <div style="background: #f5f7fa; padding: 20px; border-radius: 8px;">
+                            <h4 style="margin-bottom: 15px; color: #667eea;">💡 操作建议</h4>
+                            <p style="line-height: 1.8; color: #333;">${getRecommendationText(stock)}</p>
+                        </div>
+                    `;
+                } else {
+                    modalBody.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">加载失败</p>';
+                }
+            } catch (error) {
+                modalBody.innerHTML = `<p style="text-align: center; color: #e74c3c; padding: 40px;">${error.message}</p>`;
+            }
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        // 点击遮罩关闭弹窗
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // ESC键关闭弹窗
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

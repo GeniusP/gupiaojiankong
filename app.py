@@ -20,6 +20,7 @@ from src.aigc.model_adapter import ZhipuAdapter
 from src.monitors.tencent_collector import TencentFinanceCollector
 from src.monitors.precious_metals_collector import PreciousMetalsCollector
 from src.monitors.sector_scanner import SectorScanner
+from src.monitors.index_collector import IndexCollector
 from analyze import detect_pattern_type
 
 app = Flask(__name__)
@@ -45,6 +46,184 @@ def batch_quick():
 def sector_scan():
     """板块扫描页面"""
     return render_template('sector_scan.html')
+
+
+def is_speculative_stock(real_data: dict) -> tuple:
+    """
+    检测是否为游资炒作的股票（游资票）
+
+    基于"核心3问+硬指标阈值"判断标准：
+
+    【第一问 看资金&龙虎榜】（暂无法获取，跳过）
+    【第二问 看量能&换手】（最易判断）⭐核心
+    【第三问 看走势&驱动】（定性关键）
+
+    ✅ 硬指标阈值：
+    - 游资票：换手率≥15%、振幅≥8%、流通值40-200亿
+    - 机构票：换手率≤5%、振幅≤5%、大中盘百亿起
+
+    ✅ 终极速判口诀：
+    1. 高换手(≥15%) + 大振幅(≥8%) + 中小盘 = 游资票
+    2. 低换手(≤5%) + 小振幅(≤5%) + 大盘 = 机构票
+
+    Args:
+        real_data: 股票实时数据字典
+
+    Returns:
+        (is_speculative: bool, reason: str, risk_score: int)
+    """
+    try:
+        current_price = real_data.get('实时价', 0)
+        open_price = real_data.get('开盘价', 0)
+        high_price = real_data.get('最高价', 0)
+        low_price = real_data.get('最低价', 0)
+        prev_close = real_data.get('昨收', 0)
+        amount = real_data.get('成交额', 0)  # 成交额（元）
+        turnover_rate = real_data.get('换手率', 0)  # 换手率
+        market_cap = real_data.get('总市值', 0)  # 总市值
+
+        if current_price <= 0 or prev_close <= 0:
+            return False, "", 0
+
+        risk_factors = []
+        risk_score = 0
+
+        # ========== 【第二问 看量能&换手】核心指标 ==========
+
+        # 1. 换手率判断（最关键指标）
+        if turnover_rate and turnover_rate > 0:
+            if turnover_rate >= 20:  # 连板期水平
+                risk_score += 40
+                risk_factors.append(f"⚠️ 超高换手({turnover_rate:.2f}%),连板特征")
+            elif turnover_rate >= 15:  # 游资票硬指标
+                risk_score += 30
+                risk_factors.append(f"⚠️ 高换手({turnover_rate:.2f}%),游资活跃")
+            elif turnover_rate >= 10:
+                risk_score += 15
+                risk_factors.append(f"换手率偏高({turnover_rate:.2f}%)")
+            elif turnover_rate <= 5:  # 机构票特征
+                risk_score -= 20  # 降低风险分数
+                risk_factors.append(f"✓ 低换手({turnover_rate:.2f}%),机构特征")
+
+        # ========== 【第三问 看走势&驱动】定性判断 ==========
+
+        # 2. 日内振幅判断（硬指标：游资票≥8%，机构票≤5%）
+        if high_price > 0 and low_price > 0:
+            amplitude = ((high_price - low_price) / low_price * 100)
+            if amplitude >= 12:  # 暴涨暴跌
+                risk_score += 30
+                risk_factors.append(f"⚠️ 巨幅震荡({amplitude:.2f}%),情绪化")
+            elif amplitude >= 8:  # 游资票硬指标
+                risk_score += 20
+                risk_factors.append(f"⚠️ 大振幅({amplitude:.2f}%),游资特征")
+            elif amplitude <= 5:  # 机构票特征
+                risk_score -= 15  # 降低风险分数
+                risk_factors.append(f"✓ 小振幅({amplitude:.2f}%),稳健")
+
+        # 3. 单日涨幅判断（连板/涨停特征）
+        change_percent = ((current_price - prev_close) / prev_close * 100)
+        if change_percent >= 9.9:  # 涨停
+            risk_score += 25
+            risk_factors.append(f"⚠️ 涨停({change_percent:+.2f}%)")
+        elif change_percent >= 7:  # 大涨
+            risk_score += 15
+            risk_factors.append(f"大涨({change_percent:+.2f}%)")
+        elif change_percent <= 3 and change_percent >= 0:  # 温和上涨（机构特征）
+            risk_score -= 10
+            risk_factors.append(f"✓ 温和上涨({change_percent:+.2f}%)")
+
+        # ========== 市值判断（辅助指标） ==========
+
+        if market_cap and market_cap > 0:
+            market_cap_yi = market_cap / 100000000  # 转换为亿
+
+            # 流通值40-200亿：游资票偏好区间
+            if 40 <= market_cap_yi <= 200:
+                if turnover_rate and turnover_rate >= 15:
+                    risk_score += 15
+                    risk_factors.append(f"中小盘+高换手(市值{market_cap_yi:.0f}亿)")
+                elif turnover_rate and turnover_rate >= 10:
+                    risk_score += 10
+                    risk_factors.append(f"中小盘(市值{market_cap_yi:.0f}亿)")
+
+            # 小于40亿：容易被控盘
+            elif market_cap_yi < 40:
+                if turnover_rate and turnover_rate >= 15:
+                    risk_score += 20
+                    risk_factors.append(f"⚠️ 小盘易控盘(市值{market_cap_yi:.0f}亿,换手{turnover_rate:.2f}%)")
+                elif turnover_rate and turnover_rate >= 10:
+                    risk_score += 10
+                    risk_factors.append(f"小盘股(市值{market_cap_yi:.0f}亿)")
+
+            # 大于100亿：机构票偏好
+            elif market_cap_yi >= 100:
+                if turnover_rate and turnover_rate <= 5:
+                    risk_score -= 15
+                    risk_factors.append(f"✓ 大盘低换手(市值{market_cap_yi:.0f}亿),机构偏好")
+
+        # ========== 情绪化走势特征 ==========
+
+        # 冲高回落（从高点回落>5%）
+        if high_price > 0 and current_price > 0:
+            pullback_from_high = ((high_price - current_price) / high_price * 100)
+            if pullback_from_high > 5:
+                risk_score += 15
+                risk_factors.append(f"⚠️ 冲高回落({pullback_from_high:.2f}%)")
+
+        # 开盘强势但回落
+        if open_price > 0 and current_price > 0 and open_price > prev_close:
+            open_change = ((open_price - prev_close) / prev_close * 100)
+            current_change = ((current_price - prev_close) / prev_close * 100)
+            if open_change > current_change and open_change > 3:
+                pullback = open_change - current_change
+                if pullback > 3:
+                    risk_score += 10
+                    risk_factors.append(f"开盘回落({pullback:.2f}%)")
+
+        # ========== 成交额异常放大判断 ==========
+
+        if market_cap and amount and market_cap > 0:
+            amount_ratio = (amount / market_cap * 100)
+            if amount_ratio > 40:
+                risk_score += 10
+                risk_factors.append(f"成交额异常({amount_ratio:.0f}%市值)")
+
+        # ========== 综合判断（终极速判口诀）==========
+
+        # 口诀1: 高换手(≥15%) + 大振幅(≥8%) + 中小盘 = 游资票
+        is_high_turnover = turnover_rate and turnover_rate >= 15
+        is_high_amplitude = False
+        if high_price > 0 and low_price > 0:
+            amplitude = ((high_price - low_price) / low_price * 100)
+            is_high_amplitude = amplitude >= 8
+        is_mid_small_cap = False
+        if market_cap and market_cap > 0:
+            market_cap_yi = market_cap / 100000000
+            is_mid_small_cap = market_cap_yi <= 200
+
+        # 满足游资票"三位一体"特征，直接判定
+        if is_high_turnover and is_high_amplitude and is_mid_small_cap:
+            is_speculative = True
+            if not any("三位一体" in f for f in risk_factors):
+                risk_factors.insert(0, "⚠️ 游资票三位一体(高换手+大振幅+中小盘)")
+        else:
+            # 否则按风险分数判断
+            # 风险分数 > 50 判定为游资票
+            is_speculative = risk_score > 50 or len([f for f in risk_factors if "⚠️" in f]) >= 2
+
+        reason = "、".join(risk_factors) if risk_factors else ""
+
+        return is_speculative, reason, max(0, risk_score)
+
+    except Exception as e:
+        print(f"检测游资票时出错: {e}")
+        return False, "", 0
+
+
+@app.route('/daily-recommend')
+def daily_recommend():
+    """每日推荐页面"""
+    return render_template('daily_recommend.html')
 
 
 @app.route('/api/sector-scan', methods=['POST'])
@@ -112,6 +291,96 @@ def sector_scan_api():
             'scan_time': scan_result['scan_time'],
             'total_count': len(stocks_with_patterns),
             'filtered_count': len(filtered_stocks)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@app.route('/api/daily-recommend', methods=['POST'])
+def daily_recommend_api():
+    """每日推荐API - 基于热门板块和图形分析推荐股票"""
+    try:
+        from src.monitors.tencent_collector import TencentFinanceCollector
+
+        # 获取参数
+        sector_count = request.json.get('sector_count', 10)
+        stocks_per_sector = request.json.get('stocks_per_sector', 5)
+
+        # 扫描板块和股票
+        scanner = SectorScanner()
+        scan_result = scanner.scan_hot_sectors_stocks(
+            sector_count=sector_count,
+            stocks_per_sector=stocks_per_sector
+        )
+
+        # 获取股票实时数据并检测图形
+        collector = TencentFinanceCollector()
+        recommended_stocks = []
+
+        for stock in scan_result['stocks']:
+            stock_code = stock['stock_code']
+            real_data = collector.get_stock_realtime_data(stock_code)
+
+            if real_data and real_data.get('股票名称'):
+                # 检测图形类型
+                pattern_type, confidence, reason = detect_pattern_type(real_data)
+
+                # 计算涨跌幅
+                prev_close = real_data.get('昨收', real_data.get('开盘价', 0))
+                change_percent = ((real_data['实时价'] - prev_close) / prev_close * 100) if prev_close > 0 else 0
+
+                # 检测是否为游资票
+                is_speculative, speculative_reason, risk_score = is_speculative_stock(real_data)
+
+                # 如果是游资票，跳过该股票
+                if is_speculative:
+                    print(f"⚠️  排除游资票: {real_data.get('股票代码')} {real_data.get('股票名称')} - 风险分:{risk_score} - 原因: {speculative_reason}")
+                    continue
+
+                stock_info = {
+                    'stock_code': real_data.get('股票代码'),
+                    'stock_name': stock['stock_name'],
+                    'sector_name': stock['sector_name'],
+                    'sector_change': stock['sector_change'],
+                    'current_price': real_data.get('实时价'),
+                    'open_price': real_data.get('开盘价'),
+                    'high_price': real_data.get('最高价'),
+                    'low_price': real_data.get('最低价'),
+                    'volume': real_data.get('成交量'),
+                    'amount': real_data.get('成交额'),
+                    'change_percent': round(change_percent, 2),
+                    'pattern_type': pattern_type,
+                    'pattern_detection': {
+                        'type': pattern_type,
+                        'confidence': confidence,
+                        'description': reason
+                    }
+                }
+
+                recommended_stocks.append(stock_info)
+
+        # 按图形类型排序，优先显示强势上涨的股票
+        pattern_priority = {
+            '强势上涨': 1,
+            '震荡整理': 2,
+            '冲板回落': 3,
+            '开盘跳水': 4,
+            '破位下跌': 5
+        }
+
+        recommended_stocks.sort(
+            key=lambda x: (pattern_priority.get(x['pattern_type'], 6), -abs(x['change_percent']))
+        )
+
+        return jsonify({
+            'success': True,
+            'stocks': recommended_stocks,
+            'sectors': scan_result['sectors'],
+            'update_time': scan_result['scan_time']
         })
 
     except Exception as e:
@@ -322,6 +591,31 @@ def metals_prices_api():
         })
 
 
+@app.route('/api/index-data', methods=['GET'])
+def index_data_api():
+    """获取主要股票指数实时行情API"""
+    try:
+        collector = IndexCollector()
+        data = collector.get_all_indices()
+
+        if data and data['indices']:
+            return jsonify({
+                'success': True,
+                'data': data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '无法获取指数数据'
+            })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
 @app.route('/api/stock-search', methods=['GET'])
 def stock_search_api():
     """股票搜索API - 通过名称或代码搜索股票"""
@@ -514,6 +808,7 @@ async def analyze_stock_async(stock_code: str):
                 'limit_up': real_data.get('涨停价'),
                 'change_percent': round(change_percent, 2),
                 'volume': real_data.get('成交量'),
+                'pattern_type': pattern_type,  # 添加pattern_type以保持与daily recommend API的一致性
                 'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             },
             'pattern_detection': {

@@ -95,6 +95,15 @@ class TencentFinanceCollector(DataCollector):
             # 港股成交量可能是小数，需要先转float再转int
             volume = int(float(fields[36])) if fields[36] else 0
 
+            # 获取成交额（字段38，单位：元）
+            amount = float(fields[37]) if fields[37] and len(fields) > 37 else 0
+
+            # 获取总市值（字段45，单位：元）
+            market_cap = float(fields[45]) if len(fields) > 45 and fields[45] else 0
+
+            # 获取换手率（字段39，单位：%）
+            turnover_rate = float(fields[38]) if len(fields) > 38 and fields[38] else 0
+
             # 计算涨停价
             limit_up = round(close_prev * 1.1, 2) if close_prev > 0 else 0
 
@@ -108,7 +117,9 @@ class TencentFinanceCollector(DataCollector):
                 "涨停价": limit_up,
                 "昨收": close_prev,
                 "成交量": volume,
-                "成交额": 0,
+                "成交额": amount,
+                "总市值": market_cap,
+                "换手率": turnover_rate,
                 "板块名称": "未知",
                 "最新消息": "无"
             }

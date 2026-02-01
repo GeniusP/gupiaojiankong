@@ -471,6 +471,98 @@
             color: rgba(139, 69, 19, 0.3);
             margin: 0 10px;
         }
+
+        /* 股票指数显示样式 */
+        .index-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .index-title {
+            color: white;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .index-refresh-time {
+            font-size: 0.75em;
+            opacity: 0.8;
+            font-weight: normal;
+        }
+
+        .index-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+        }
+
+        .index-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 12px 10px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .index-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .index-name {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .index-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .index-change {
+            font-size: 0.85em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .index-change.up {
+            color: #e74c3c;
+        }
+
+        .index-change.down {
+            color: #27ae60;
+        }
+
+        .index-change.flat {
+            color: #999;
+        }
+
+        @media (max-width: 1200px) {
+            .index-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .index-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
     </style>
 </head>
 <body>
@@ -486,12 +578,55 @@
             </div>
         </div>
 
+        <!-- 股票指数Banner -->
+        <div class="index-banner">
+            <div class="index-title">
+                <span>📊 主要股票指数</span>
+                <span class="index-refresh-time" id="indexRefreshTime">加载中...</span>
+            </div>
+            <div class="index-grid" id="indexGrid">
+                <div class="index-item">
+                    <div class="index-name">上证指数</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">深证成指</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">创业板指</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">科创50</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">沪深300</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+                <div class="index-item">
+                    <div class="index-name">中证1000</div>
+                    <div class="index-value">---</div>
+                    <div class="index-change">---</div>
+                </div>
+            </div>
+        </div>
+
         <div class="header">
             <h1 style="text-align: center; margin-bottom: 8px;">📊 智谱AI股票分析系统</h1>
             <p style="text-align: center; margin-bottom: 12px;">实时数据 + 智能分析 | 每次刷新都获取最新行情</p>
             <div style="display: flex; gap: 15px; justify-content: center;">
                 <a href="/sector-scan" class="btn btn-primary" style="text-decoration: none; display: inline-block; padding: 10px 25px; font-size: 14px;">
                     🔍 热门板块扫描
+                </a>
+                <a href="/daily-recommend" class="btn btn-primary" style="text-decoration: none; display: inline-block; padding: 10px 25px; font-size: 14px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    🌟 每日推荐
                 </a>
                 <a href="/batch-quick" class="btn btn-secondary" style="text-decoration: none; display: inline-block; padding: 10px 25px; font-size: 14px; background: #6c757d; color: white;">
                     📈 实时监控面板
@@ -1186,7 +1321,7 @@
         }
 
         // 获取贵金属价格
-        async function fetchMetalsPrices() {
+        async function fetchMetalsPrices(isAutoRefresh = false) {
             try {
                 const response = await fetch('/api/metals-prices');
                 const result = await response.json();
@@ -1273,18 +1408,122 @@
                 }
             } catch (error) {
                 console.error('获取贵金属价格失败:', error);
-                const bannerContent = document.getElementById('metalsBanner');
-                bannerContent.innerHTML = `
-                    <div class="metal-item">
-                        <span class="metal-icon">⚠️</span>
-                        <span style="color: #999;">价格加载失败</span>
-                    </div>
-                    <div class="metal-item">
-                        <span class="metal-icon">⚠️</span>
-                        <span style="color: #999;">价格加载失败</span>
-                    </div>
-                `;
+                if (!isAutoRefresh) {  // 只有非自动刷新时才显示错误
+                    const bannerContent = document.getElementById('metalsBanner');
+                    bannerContent.innerHTML = `
+                        <div class="metal-item">
+                            <span class="metal-icon">⚠️</span>
+                            <span style="color: #999;">价格加载失败</span>
+                        </div>
+                        <div class="metal-item">
+                            <span class="metal-icon">⚠️</span>
+                            <span style="color: #999;">价格加载失败</span>
+                        </div>
+                    `;
+                }
             }
+        }
+
+        // 判断是否在交易时间内
+        function isTradingTime() {
+            const now = new Date();
+            const day = now.getDay(); // 0=周日, 6=周六
+            const hour = now.getHours();
+            const minute = now.getMinutes();
+            const currentTime = hour * 60 + minute; // 转换为分钟
+
+            // 周末不交易
+            if (day === 0 || day === 6) {
+                return false;
+            }
+
+            // 上午交易时间: 9:30-11:30 (570-690分钟)
+            // 下午交易时间: 13:00-15:00 (780-900分钟)
+            const morningStart = 9 * 60 + 30;  // 9:30
+            const morningEnd = 11 * 60 + 30;   // 11:30
+            const afternoonStart = 13 * 60;    // 13:00
+            const afternoonEnd = 15 * 60;      // 15:00
+
+            return (currentTime >= morningStart && currentTime <= morningEnd) ||
+                   (currentTime >= afternoonStart && currentTime <= afternoonEnd);
+        }
+
+        // 启动贵金属价格自动刷新（每10秒，仅在交易时间内）
+        function startMetalsAutoRefresh() {
+            // 立即执行一次
+            fetchMetalsPrices(true);
+
+            // 设置定时器，每10秒检查一次
+            setInterval(() => {
+                if (isTradingTime()) {
+                    fetchMetalsPrices(true);
+                }
+            }, 10000);
+        }
+
+        // 获取股票指数数据
+        async function fetchIndexData() {
+            try {
+                const response = await fetch('/api/index-data');
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const indices = result.data.indices;
+                    const indexGrid = document.getElementById('indexGrid');
+
+                    // 更新刷新时间
+                    if (result.data.update_time) {
+                        document.getElementById('indexRefreshTime').textContent = '更新: ' + result.data.update_time;
+                    }
+
+                    // 构建指数卡片
+                    let indexHTML = '';
+                    indices.forEach(index => {
+                        if (index.current === null) {
+                            // 数据加载失败
+                            indexHTML += `
+                                <div class="index-item">
+                                    <div class="index-name">${index.name}</div>
+                                    <div class="index-value">---</div>
+                                    <div class="index-change flat">加载失败</div>
+                                </div>
+                            `;
+                        } else {
+                            // 正常数据
+                            const changeSign = index.change >= 0 ? '+' : '';
+                            const changeClass = index.change > 0 ? 'up' : (index.change < 0 ? 'down' : 'flat');
+                            const arrow = index.change > 0 ? '📈' : (index.change < 0 ? '📉' : '➡️');
+
+                            indexHTML += `
+                                <div class="index-item">
+                                    <div class="index-name">${index.name}</div>
+                                    <div class="index-value">${index.current}</div>
+                                    <div class="index-change ${changeClass}">
+                                        ${arrow} ${changeSign}${index.change_percent}%
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    });
+
+                    indexGrid.innerHTML = indexHTML;
+                }
+            } catch (error) {
+                console.error('获取指数数据失败:', error);
+            }
+        }
+
+        // 启动指数自动刷新（每15秒，仅在交易时间内）
+        function startIndexAutoRefresh() {
+            // 立即执行一次
+            fetchIndexData();
+
+            // 设置定时器，每15秒检查一次
+            setInterval(() => {
+                if (isTradingTime()) {
+                    fetchIndexData();
+                }
+            }, 15000);
         }
 
         // 获取图形类型的样式类
@@ -1302,7 +1541,8 @@
         // 页面加载完成
         window.addEventListener('DOMContentLoaded', function() {
             updateTime();
-            fetchMetalsPrices(); // 加载贵金属价格
+            startMetalsAutoRefresh(); // 启动贵金属自动刷新
+            startIndexAutoRefresh(); // 启动指数自动刷新
             loadQuickAnalysisData(); // 加载快速分析按钮的实时数据
 
             // 检查URL参数中是否有股票代码，如果有则自动分析
