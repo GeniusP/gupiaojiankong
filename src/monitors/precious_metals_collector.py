@@ -15,7 +15,7 @@ class PreciousMetalsCollector:
 
     # iTick API 配置
     API_BASE_URL = "https://api.itick.org"
-   
+    API_TOKEN = "bd96ea66843f40ad89e833694b6944400fb74938beeb317d9041dd42"
 
     # 贵金属代码映射
     METALS_CODES = {

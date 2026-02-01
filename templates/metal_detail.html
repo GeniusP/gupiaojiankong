@@ -476,6 +476,9 @@
             const chartDom = document.getElementById('klineChart');
             const myChart = echarts.init(chartDom);
 
+            // 获取当前贵金属名称
+            const currentMetalName = document.getElementById('metalName').textContent;
+
             // 数据格式：[日期, 开盘, 最高, 最低, 收盘]
             // ECharts candlestick格式: [开盘, 收盘, 最低, 最高]
             const dates = klineData.map(item => item[0]);
@@ -486,7 +489,7 @@
 
             const option = {
                 title: {
-                    text: `${metalName}日K线 + BBI指标`,
+                    text: `${currentMetalName}日K线 + BBI指标`,
                     left: 'center',
                     textStyle: {
                         color: '#333',
